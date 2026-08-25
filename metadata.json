@@ -1,6 +1,6 @@
 {
-  "name": "Law Anki",
-  "description": "แอพท่องจำตัวบทกฎหมายไทยแบบ Anki ด้วยระบบ Spaced Repetition (SRS) ดีไซน์สีขาวดำ สไตล์ iOS",
+  "name": "ห้องสมุดกฎหมาย",
+  "description": "ห้องสมุดรวบรวมตัวบทกฎหมายไทย อ่านเป็น Deck บัตรคำแยกรายมาตรา ใช้งานง่าย สวยงาม เรียบง่ายในหน้าเดียว",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"

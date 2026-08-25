@@ -1,151 +1,97 @@
 import React from 'react';
-import { BookOpen, Flame, Plus, Search, BarChart3, Settings, ShieldCheck } from 'lucide-react';
-import { StudyMode } from '../types';
+import { BookOpen, Plus, Search, RotateCcw, Scale } from 'lucide-react';
+import { LawDeck } from '../types';
 
 interface HeaderProps {
-  currentMode: StudyMode | 'dashboard';
-  onSelectMode: (mode: StudyMode | 'dashboard') => void;
-  streak: number;
-  dueCount: number;
-  onOpenAddCard: () => void;
-  onOpenStats: () => void;
-  onOpenSettings: () => void;
+  searchQuery: string;
+  onSearchChange: (q: string) => void;
+  selectedDeck: LawDeck | null;
+  onSelectDeck: (deck: LawDeck | null) => void;
+  onOpenAddModal: () => void;
+  onResetData: () => void;
+  totalCardsCount: number;
+  totalDecksCount: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
-  currentMode,
-  onSelectMode,
-  streak,
-  dueCount,
-  onOpenAddCard,
-  onOpenStats,
-  onOpenSettings,
+  searchQuery,
+  onSearchChange,
+  selectedDeck,
+  onSelectDeck,
+  onOpenAddModal,
+  onResetData,
+  totalCardsCount,
+  totalDecksCount,
 }) => {
   return (
-    <header id="app-header" className="sticky top-0 z-40 w-full backdrop-blur-xl bg-white/90 border-b border-zinc-200/80 transition-all">
-      <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between gap-2 sm:gap-4">
-        {/* Brand / Logo */}
-        <button
-          id="brand-logo-btn"
-          onClick={() => onSelectMode('dashboard')}
-          className="flex items-center gap-2.5 text-left group cursor-pointer"
+    <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200 shadow-[0_1px_3px_rgba(0,0,0,0.03)]">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+        {/* Left: Brand / Title */}
+        <div 
+          onClick={() => onSelectDeck(null)}
+          className="flex items-center gap-3 cursor-pointer select-none group"
+          id="brand-logo-button"
         >
-          <div className="w-9 h-9 rounded-xl bg-black text-white flex items-center justify-center shadow-xs group-hover:scale-105 transition-transform">
-            <ShieldCheck className="w-5 h-5 stroke-[2.2]" />
+          <div className="w-10 h-10 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform">
+            <Scale className="w-5 h-5 text-zinc-100" />
           </div>
           <div>
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold text-base tracking-tight text-zinc-950">Law Anki</span>
-              <span className="text-[10px] uppercase font-semibold px-1.5 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200">iOS 26</span>
-            </div>
-            <p className="text-[11px] text-zinc-700 leading-none">ท่องตัวบทกฎหมาย</p>
-          </div>
-        </button>
-
-        {/* Center Mode Switcher for Desktop */}
-        <div className="hidden md:flex items-center bg-zinc-100/90 p-1 rounded-xl border border-zinc-200/80">
-          <button
-            id="nav-dashboard"
-            onClick={() => onSelectMode('dashboard')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-              currentMode === 'dashboard'
-                ? 'bg-white text-zinc-950 shadow-xs'
-                : 'text-zinc-700 hover:text-zinc-950'
-            }`}
-          >
-            ภาพรวม
-          </button>
-          <button
-            id="nav-flashcard"
-            onClick={() => onSelectMode('flashcard')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 ${
-              currentMode === 'flashcard'
-                ? 'bg-white text-zinc-950 shadow-xs'
-                : 'text-zinc-700 hover:text-zinc-950'
-            }`}
-          >
-            <span>บัตรคำ (SRS)</span>
-            {dueCount > 0 && (
-              <span className="px-1.5 py-0.2 text-[10px] bg-black text-white rounded-full font-bold">
-                {dueCount}
+            <div className="flex items-center gap-2">
+              <h1 className="font-bold text-lg text-zinc-900 leading-none tracking-tight">ห้องสมุดกฎหมาย</h1>
+              <span className="text-[11px] font-semibold bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full border border-zinc-200">
+                Deck Reader
               </span>
-            )}
-          </button>
-          <button
-            id="nav-cloze"
-            onClick={() => onSelectMode('cloze')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-              currentMode === 'cloze'
-                ? 'bg-white text-zinc-950 shadow-xs'
-                : 'text-zinc-700 hover:text-zinc-950'
-            }`}
-          >
-            เติมคำ
-          </button>
-          <button
-            id="nav-recite"
-            onClick={() => onSelectMode('recite_test')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-              currentMode === 'recite_test'
-                ? 'bg-white text-zinc-950 shadow-xs'
-                : 'text-zinc-700 hover:text-zinc-950'
-            }`}
-          >
-            ทดสอบพิมพ์
-          </button>
-          <button
-            id="nav-browse"
-            onClick={() => onSelectMode('browse')}
-            className={`px-3 py-1 text-xs font-semibold rounded-lg transition-all ${
-              currentMode === 'browse'
-                ? 'bg-white text-zinc-950 shadow-xs'
-                : 'text-zinc-700 hover:text-zinc-950'
-            }`}
-          >
-            ค้นหาตัวบท
-          </button>
+            </div>
+            <p className="text-xs text-zinc-500 mt-0.5 hidden sm:block">
+              {selectedDeck ? `กำลังอ่าน: ${selectedDeck.name}` : `รวบรวม ${totalDecksCount} หมวด • ${totalCardsCount} มาตรา`}
+            </p>
+          </div>
         </div>
 
-        {/* Right Actions */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Daily Streak */}
-          <div
-            id="streak-badge"
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-zinc-100 border border-zinc-200/80 text-zinc-900 text-xs font-semibold"
-            title={`ต่อเนื่อง ${streak} วัน`}
-          >
-            <Flame className="w-4 h-4 text-black fill-black" />
-            <span>{streak}</span>
-          </div>
+        {/* Middle: Search input */}
+        <div className="flex-1 max-w-md mx-2 relative">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
+          <input
+            id="law-search-input"
+            type="text"
+            placeholder="ค้นหามาตรา, ชื่อหัวข้อ, หรือเนื้อหากฎหมาย..."
+            value={searchQuery}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-sm bg-zinc-100/80 hover:bg-zinc-100 focus:bg-white text-zinc-900 placeholder-zinc-400 rounded-xl border border-transparent focus:border-zinc-300 focus:outline-none transition-all"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchChange('')}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-zinc-400 hover:text-zinc-700 bg-zinc-200/60 hover:bg-zinc-200 rounded-full w-5 h-5 flex items-center justify-center cursor-pointer"
+            >
+              ✕
+            </button>
+          )}
+        </div>
 
-          {/* Add Card Button */}
+        {/* Right: Actions */}
+        <div className="flex items-center gap-2">
           <button
-            id="btn-add-statute"
-            onClick={onOpenAddCard}
-            className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-200/80 text-zinc-900 flex items-center justify-center transition-all cursor-pointer"
-            title="เพิ่มตัวบทใหม่"
+            id="add-section-header-btn"
+            onClick={onOpenAddModal}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-colors cursor-pointer shadow-sm"
+            title="เพิ่มมาตราใหม่"
           >
-            <Plus className="w-4 h-4 stroke-[2.2]" />
+            <Plus className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">เพิ่มมาตรา</span>
           </button>
 
-          {/* Stats Button */}
           <button
-            id="btn-stats"
-            onClick={onOpenStats}
-            className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-200/80 text-zinc-900 flex items-center justify-center transition-all cursor-pointer"
-            title="สถิติความจำ (SRS)"
+            id="reset-data-header-btn"
+            onClick={() => {
+              if (window.confirm('คุณต้องการรีเซ็ตตัวบทกฎหมายกลับเป็นค่าเริ่มต้นใช่หรือไม่?')) {
+                onResetData();
+              }
+            }}
+            className="p-2 text-xs text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 rounded-xl transition-colors cursor-pointer"
+            title="รีเซ็ตตัวบทกลับเป็นค่าเริ่มต้น"
           >
-            <BarChart3 className="w-4 h-4 stroke-[2]" />
-          </button>
-
-          {/* Settings Button */}
-          <button
-            id="btn-settings"
-            onClick={onOpenSettings}
-            className="w-8 h-8 rounded-xl bg-zinc-100 hover:bg-zinc-200 border border-zinc-200/80 text-zinc-900 flex items-center justify-center transition-all cursor-pointer"
-            title="ตั้งค่า"
-          >
-            <Settings className="w-4 h-4 stroke-[2]" />
+            <RotateCcw className="w-4 h-4" />
           </button>
         </div>
       </div>
