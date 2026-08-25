@@ -1,0 +1,8 @@
+{
+  "name": "Law Anki",
+  "description": "แอพท่องจำตัวบทกฎหมายไทยแบบ Anki ด้วยระบบ Spaced Repetition (SRS) ดีไซน์สีขาวดำ สไตล์ iOS",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
