@@ -1,5 +1,5 @@
 import React from 'react';
-import { BookOpen, Plus, Search, RotateCcw, Scale } from 'lucide-react';
+import { BookOpen, Plus, Search, RotateCcw, Scale, UploadCloud } from 'lucide-react';
 import { LawDeck } from '../types';
 
 interface HeaderProps {
@@ -8,6 +8,7 @@ interface HeaderProps {
   selectedDeck: LawDeck | null;
   onSelectDeck: (deck: LawDeck | null) => void;
   onOpenAddModal: () => void;
+  onOpenImportModal: () => void;
   onResetData: () => void;
   totalCardsCount: number;
   totalDecksCount: number;
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   selectedDeck,
   onSelectDeck,
   onOpenAddModal,
+  onOpenImportModal,
   onResetData,
   totalCardsCount,
   totalDecksCount,
@@ -71,6 +73,16 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-2">
+          <button
+            id="import-law-header-btn"
+            onClick={onOpenImportModal}
+            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-300 transition-colors cursor-pointer shadow-xs"
+            title="นำเข้าตัวบทกฎหมายจากไฟล์"
+          >
+            <UploadCloud className="w-3.5 h-3.5 text-zinc-700" />
+            <span className="hidden sm:inline">นำเข้ากฎหมาย</span>
+          </button>
+
           <button
             id="add-section-header-btn"
             onClick={onOpenAddModal}

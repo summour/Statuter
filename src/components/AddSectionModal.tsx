@@ -26,8 +26,6 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
   const [title, setTitle] = useState('');
   const [fullText, setFullText] = useState('');
 
-  if (!isOpen) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sectionNumber.trim() || !fullText.trim()) {
@@ -87,6 +85,8 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
     setTitle('');
     setFullText('');
   };
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
