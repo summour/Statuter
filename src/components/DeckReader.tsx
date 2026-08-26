@@ -20,10 +20,10 @@ import { exportDeckToJson } from '../utils/storage';
 import { formatNumeralText, parseRawSectionNumber } from '../utils/thaiLawParser';
 import { 
   buildLawHierarchyTree, 
-  filterCardsByHierarchyNode, 
-  formatTreeOptionLabel 
+  filterCardsByHierarchyNode 
 } from '../utils/lawHierarchy';
 import { StructureTocModal } from './StructureTocModal';
+import { StructureSelectPopover } from './StructureSelectPopover';
 
 interface DeckReaderProps {
   deck: LawDeck | 'all';
@@ -261,42 +261,18 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             </button>
           )}
 
-          {/* Natural Tree Structure Filter (บรรพ -> ลักษณะ -> หมวด -> ส่วน) & TOC Modal Button */}
+          {/* Natural Tree Structure Filter (บรรพ -> ลักษณะ -> หมวด -> ส่วน) */}
           {treeResult.hasMultipleStructures && (
-            <div className="flex items-center gap-1">
-              <button
-                id="open-toc-modal-btn"
-                onClick={() => setIsTocModalOpen(true)}
-                className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-zinc-200"
-                title="เปิดสารบัญโครงสร้างกฎหมาย (Tree View)"
-              >
-                <Layers className="w-3.5 h-3.5 text-zinc-600" />
-                <span className="hidden sm:inline">สารบัญ</span>
-              </button>
-
-              <div className="relative">
-                <select
-                  id="filter-structure-select"
-                  value={structureFilter}
-                  onChange={(e) => {
-                    setStructureFilter(e.target.value);
-                    setCurrentIndex(0);
-                  }}
-                  className="appearance-none bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-xs font-medium text-zinc-800 py-1.5 pl-3 pr-7 rounded-xl cursor-pointer focus:outline-none max-w-[170px] sm:max-w-[240px] truncate font-sans"
-                  title="เลือกโครงสร้างกฎหมาย (บรรพ / ลักษณะ / หมวด / ส่วน)"
-                >
-                  <option value="all">
-                    โครงสร้างทั้งหมด ({formatNumeralText(treeResult.totalCards.toString(), numeralSystem)})
-                  </option>
-                  {treeResult.flatList.map((node) => (
-                    <option key={node.id} value={node.id}>
-                      {formatTreeOptionLabel(node, numeralSystem)}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown className="w-3.5 h-3.5 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
-              </div>
-            </div>
+            <StructureSelectPopover
+              treeResult={treeResult}
+              currentFilter={structureFilter}
+              onSelectFilter={(nodeId) => {
+                setStructureFilter(nodeId);
+                setCurrentIndex(0);
+              }}
+              onOpenFullToc={() => setIsTocModalOpen(true)}
+              numeralSystem={numeralSystem}
+            />
           )}
 
           {/* Quick Jump Selector */}
@@ -388,7 +364,12 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
           <div className="flex items-center gap-2 min-w-0">
             <span className="font-semibold text-zinc-900 shrink-0">กำลังกรองอ่าน:</span>
             <span className="truncate font-medium text-zinc-800">
-              {formatNumeralText(treeResult.flatList.find(n => n.id === structureFilter)?.label || structureFilter, numeralSystem)}
+              {formatNumeralText(
+                treeResult.flatList.find(n => n.id === structureFilter)?.breadcrumb || 
+                treeResult.flatList.find(n => n.id === structureFilter)?.label || 
+                structureFilter, 
+                numeralSystem
+              )}
             </span>
             <span className="text-[11px] text-zinc-500 shrink-0">
               ({formatNumeralText(deckCards.length.toString(), numeralSystem)} มาตรา)

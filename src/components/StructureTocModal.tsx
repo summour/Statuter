@@ -75,21 +75,6 @@ export const StructureTocModal: React.FC<StructureTocModalProps> = ({
 
   if (!isOpen) return null;
 
-  const getLevelBadge = (level: string) => {
-    switch (level) {
-      case 'book':
-        return <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-purple-100 text-purple-800 border border-purple-200">บรรพ/ภาค</span>;
-      case 'title':
-        return <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-blue-100 text-blue-800 border border-blue-200">ลักษณะ</span>;
-      case 'chapter':
-        return <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-teal-100 text-teal-800 border border-teal-200">หมวด</span>;
-      case 'part':
-        return <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-amber-100 text-amber-800 border border-amber-200">ส่วน</span>;
-      default:
-        return <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200">อื่นๆ</span>;
-    }
-  };
-
   const renderTreeNode = (node: LawTreeNode) => {
     const isCollapsed = collapsedIds.has(node.id);
     const hasChildren = node.children.length > 0;
@@ -98,12 +83,19 @@ export const StructureTocModal: React.FC<StructureTocModalProps> = ({
     // Formatting
     const displayLabel = formatNumeralText(node.label, numeralSystem);
     const displayCount = formatNumeralText(node.count.toString(), numeralSystem);
-    const displayStart = formatNumeralText(node.startSection, numeralSystem);
-    const displayEnd = formatNumeralText(node.endSection, numeralSystem);
-    const rangeText = displayStart === displayEnd ? displayStart : `${displayStart} - ${displayEnd}`;
+    
+    const cleanStart = node.startSection.replace(/^มาตรา\s*/, '');
+    const cleanEnd = node.endSection.replace(/^มาตรา\s*/, '');
+    const displayRange = node.startSection === '-' 
+      ? '' 
+      : cleanStart === cleanEnd 
+      ? `ม. ${formatNumeralText(cleanStart, numeralSystem)}` 
+      : `ม. ${formatNumeralText(cleanStart, numeralSystem)}–${formatNumeralText(cleanEnd, numeralSystem)}`;
 
-    // Depth indentation
-    const indentPadding = node.depth === 0 ? 'pl-3' : node.depth === 1 ? 'pl-7' : node.depth === 2 ? 'pl-11' : 'pl-16';
+    const isBook = node.level === 'book';
+    const isTitle = node.level === 'title';
+    const isChapter = node.level === 'chapter';
+    const paddingLeftPx = node.depth === 0 ? 12 : node.depth === 1 ? 32 : node.depth === 2 ? 52 : 72;
 
     return (
       <div key={node.id} className="flex flex-col">
@@ -112,49 +104,60 @@ export const StructureTocModal: React.FC<StructureTocModalProps> = ({
             onSelectFilter(node.id);
             onClose();
           }}
-          className={`flex items-center justify-between py-2.5 pr-3 ${indentPadding} rounded-xl text-left cursor-pointer transition-all ${
+          style={{ paddingLeft: `${paddingLeftPx}px` }}
+          className={`flex items-center justify-between py-2.5 pr-4 rounded-xl text-left cursor-pointer transition-all ${
             isSelected 
               ? 'bg-zinc-900 text-white font-semibold shadow-xs' 
-              : 'hover:bg-zinc-100 text-zinc-800'
+              : isBook
+              ? 'bg-zinc-50/70 hover:bg-zinc-100 text-zinc-900 font-bold border-t border-zinc-100 first:border-t-0 mt-1'
+              : isTitle
+              ? 'hover:bg-zinc-100 text-zinc-900 font-semibold'
+              : isChapter
+              ? 'hover:bg-zinc-100 text-zinc-800 font-medium'
+              : 'hover:bg-zinc-100 text-zinc-600'
           }`}
         >
-          <div className="flex items-center gap-2 min-w-0 flex-1 mr-2">
+          <div className="flex items-center gap-2 min-w-0 flex-1 mr-3">
             {hasChildren ? (
               <button
                 type="button"
                 onClick={(e) => toggleCollapse(node.id, e)}
-                className={`p-1 rounded-md transition-colors ${
-                  isSelected ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-zinc-200 text-zinc-500'
+                className={`p-1 -ml-1 rounded-md transition-colors ${
+                  isSelected ? 'hover:bg-zinc-800 text-zinc-300' : 'hover:bg-zinc-200 text-zinc-400 hover:text-zinc-700'
                 }`}
+                title={isCollapsed ? 'ขยาย' : 'ย่อ'}
               >
-                {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
               </button>
             ) : (
-              <div className="w-5.5" />
+              <div className="w-4 shrink-0" />
             )}
 
-            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-              {getLevelBadge(node.level)}
-              <span className={`text-xs truncate ${isSelected ? 'text-white font-bold' : 'text-zinc-800 font-medium'}`}>
-                {displayLabel}
-              </span>
-            </div>
+            <span className={`text-sm truncate ${
+              isSelected 
+                ? 'text-white font-bold' 
+                : isBook 
+                ? 'font-bold text-zinc-900 text-sm' 
+                : isTitle 
+                ? 'font-semibold text-zinc-800 text-sm' 
+                : 'text-zinc-700 text-xs'
+            }`}>
+              {displayLabel}
+            </span>
           </div>
 
-          <div className="flex items-center gap-2 shrink-0">
-            {node.startSection !== '-' && (
-              <span className={`text-[11px] px-2 py-0.5 rounded-md ${
-                isSelected ? 'bg-zinc-800 text-zinc-200' : 'bg-zinc-100 text-zinc-600'
-              }`}>
-                {rangeText}
+          <div className="flex items-center gap-2.5 shrink-0 text-xs">
+            {displayRange && (
+              <span className={isSelected ? 'text-zinc-300' : 'text-zinc-400 font-normal'}>
+                {displayRange}
               </span>
             )}
-            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-              isSelected ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-700'
+            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
+              isSelected ? 'bg-zinc-800 text-zinc-200' : 'bg-zinc-100 text-zinc-600'
             }`}>
               {displayCount} มาตรา
             </span>
-            {isSelected && <Check className="w-4 h-4 text-emerald-400 shrink-0 ml-1" />}
+            {isSelected && <Check className="w-4 h-4 text-emerald-400 shrink-0 ml-0.5" />}
           </div>
         </div>
 
@@ -256,42 +259,49 @@ export const StructureTocModal: React.FC<StructureTocModalProps> = ({
         <div className="flex-1 overflow-y-auto p-3 sm:p-5 space-y-1 divide-y divide-zinc-100/60">
           {filteredFlatList ? (
             filteredFlatList.length > 0 ? (
-              <div className="space-y-1">
-                {filteredFlatList.map(node => (
-                  <div
-                    key={node.id}
-                    onClick={() => {
-                      onSelectFilter(node.id);
-                      onClose();
-                    }}
-                    className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
-                      currentFilter === node.id
-                        ? 'bg-zinc-900 text-white font-semibold'
-                        : 'hover:bg-zinc-100 text-zinc-800'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 min-w-0 mr-2">
-                      {getLevelBadge(node.level)}
-                      <span className="text-xs truncate font-medium">
-                        {formatNumeralText(node.label, numeralSystem)}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 shrink-0">
-                      {node.startSection !== '-' && (
-                        <span className={`text-[11px] px-2 py-0.5 rounded-md ${
+              <div className="space-y-0.5">
+                {filteredFlatList.map(node => {
+                  const cleanStart = node.startSection.replace(/^มาตรา\s*/, '');
+                  const cleanEnd = node.endSection.replace(/^มาตรา\s*/, '');
+                  const displayRange = node.startSection === '-' 
+                    ? '' 
+                    : cleanStart === cleanEnd 
+                    ? `ม. ${formatNumeralText(cleanStart, numeralSystem)}` 
+                    : `ม. ${formatNumeralText(cleanStart, numeralSystem)}–${formatNumeralText(cleanEnd, numeralSystem)}`;
+
+                  return (
+                    <div
+                      key={node.id}
+                      onClick={() => {
+                        onSelectFilter(node.id);
+                        onClose();
+                      }}
+                      className={`flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${
+                        currentFilter === node.id
+                          ? 'bg-zinc-900 text-white font-semibold'
+                          : 'hover:bg-zinc-100 text-zinc-800'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0 mr-3">
+                        <span className="text-xs truncate font-medium">
+                          {formatNumeralText(node.label, numeralSystem)}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0 text-xs">
+                        {displayRange && (
+                          <span className={currentFilter === node.id ? 'text-zinc-300' : 'text-zinc-400'}>
+                            {displayRange}
+                          </span>
+                        )}
+                        <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full ${
                           currentFilter === node.id ? 'bg-zinc-800 text-zinc-200' : 'bg-zinc-100 text-zinc-600'
                         }`}>
-                          {formatNumeralText(node.startSection, numeralSystem)} - {formatNumeralText(node.endSection, numeralSystem)}
+                          {formatNumeralText(node.count.toString(), numeralSystem)} มาตรา
                         </span>
-                      )}
-                      <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                        currentFilter === node.id ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-200 text-zinc-700'
-                      }`}>
-                        {formatNumeralText(node.count.toString(), numeralSystem)} มาตรา
-                      </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="py-12 text-center text-zinc-400">

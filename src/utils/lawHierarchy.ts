@@ -7,6 +7,7 @@ export interface LawTreeNode {
   id: string;
   level: HierarchyLevel;
   label: string;
+  breadcrumb?: string;
   depth: number;
   startSection: string;
   endSection: string;
@@ -76,6 +77,7 @@ export function buildLawHierarchyTree(cards: LawCard[]): HierarchyTreeResult {
           id: bookId,
           level: 'book',
           label: book,
+          breadcrumb: book,
           depth: 0,
           startSection: c.sectionNumber,
           endSection: c.sectionNumber,
@@ -100,10 +102,12 @@ export function buildLawHierarchyTree(cards: LawCard[]): HierarchyTreeResult {
       if (!map.has(titleId)) {
         const parent = parentId ? map.get(parentId) : null;
         const depth = parent ? parent.depth + 1 : 0;
+        const breadcrumb = book ? `${book} › ${title}` : title;
         const node: LawTreeNode = {
           id: titleId,
           level: 'title',
           label: title,
+          breadcrumb,
           depth,
           startSection: c.sectionNumber,
           endSection: c.sectionNumber,
@@ -130,10 +134,13 @@ export function buildLawHierarchyTree(cards: LawCard[]): HierarchyTreeResult {
       if (!map.has(chapterId)) {
         const parent = parentId ? map.get(parentId) : null;
         const depth = parent ? parent.depth + 1 : 0;
+        const breadcrumbParts = [book, title, chapter].filter(Boolean);
+        const breadcrumb = breadcrumbParts.join(' › ');
         const node: LawTreeNode = {
           id: chapterId,
           level: 'chapter',
           label: chapter,
+          breadcrumb,
           depth,
           startSection: c.sectionNumber,
           endSection: c.sectionNumber,
@@ -161,10 +168,13 @@ export function buildLawHierarchyTree(cards: LawCard[]): HierarchyTreeResult {
       if (!map.has(partId)) {
         const parent = parentId ? map.get(parentId) : null;
         const depth = parent ? parent.depth + 1 : 0;
+        const breadcrumbParts = [book, title, chapter, part].filter(Boolean);
+        const breadcrumb = breadcrumbParts.join(' › ');
         const node: LawTreeNode = {
           id: partId,
           level: 'part',
           label: part,
+          breadcrumb,
           depth,
           startSection: c.sectionNumber,
           endSection: c.sectionNumber,
