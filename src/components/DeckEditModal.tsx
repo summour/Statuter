@@ -43,11 +43,11 @@ export const DeckEditModal: React.FC<DeckEditModalProps> = ({
 
   useEffect(() => {
     if (editingDeck) {
-      setName(editingDeck.name);
-      setShortName(editingDeck.shortName);
-      setDescription(editingDeck.description);
-      setCategory(editingDeck.category);
-      setCategoryLabel(editingDeck.categoryLabel);
+      setName(editingDeck.name || '');
+      setShortName(editingDeck.shortName || '');
+      setDescription(editingDeck.description || '');
+      setCategory(editingDeck.category || 'custom');
+      setCategoryLabel(editingDeck.categoryLabel || 'สำรับส่วนตัว');
       setIconName(editingDeck.iconName || 'BookOpen');
       setColor(editingDeck.color || 'zinc');
     } else {
@@ -97,7 +97,7 @@ export const DeckEditModal: React.FC<DeckEditModalProps> = ({
       id: deckId,
       name: name.trim(),
       shortName: trimmedShort,
-      description: description.trim(),
+      description: (description || '').trim(),
       category,
       categoryLabel: categoryLabel.trim() || 'สำรับส่วนตัว',
       iconName,

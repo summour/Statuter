@@ -81,6 +81,7 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
     id: `deck-${Date.now()}`,
     name: auditReport?.lawNameDetected || 'สำรับกฎหมายนำเข้า',
     shortName: auditReport?.lawNameDetected ? auditReport.lawNameDetected.substring(0, 10) : 'กฎหมาย',
+    description: '',
     category: 'code',
     categoryLabel: 'ประมวลกฎหมาย',
     iconName: 'Scale',

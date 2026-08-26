@@ -63,10 +63,10 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
       if (selectedCategory !== 'all' && deck.category !== selectedCategory) return false;
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const inName = deck.name.toLowerCase().includes(q);
-        const inShort = deck.shortName.toLowerCase().includes(q);
-        const inDesc = deck.description.toLowerCase().includes(q);
-        const inCat = deck.categoryLabel.toLowerCase().includes(q);
+        const inName = (deck.name || '').toLowerCase().includes(q);
+        const inShort = (deck.shortName || '').toLowerCase().includes(q);
+        const inDesc = (deck.description || '').toLowerCase().includes(q);
+        const inCat = (deck.categoryLabel || '').toLowerCase().includes(q);
         return inName || inShort || inDesc || inCat;
       }
       return true;

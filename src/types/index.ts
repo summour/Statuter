@@ -31,7 +31,7 @@ export interface LawDeck {
   id: string;
   name: string;
   shortName: string;
-  description: string;
+  description?: string;
   category: 'code' | 'proc' | 'constitution' | 'act' | 'custom';
   categoryLabel: string;
   iconName: string;
