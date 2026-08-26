@@ -6,7 +6,8 @@ import { AddSectionModal } from './components/AddSectionModal';
 import { ImportLawModal } from './components/ImportLawModal';
 import { DeckEditModal } from './components/DeckEditModal';
 import { DeleteDeckModal } from './components/DeleteDeckModal';
-import { DeckManagerModal } from './components/DeckManagerModal';
+import { IOSDock, TabType } from './components/IOSDock';
+import { SettingsView } from './components/SettingsView';
 import { LawDeck, LawCard, NumeralSystem } from './types';
 import { LAW_DECKS, INITIAL_LAW_CARDS } from './data/defaultDecks';
 import { 
@@ -20,6 +21,7 @@ import {
 import { CheckCircle2 } from 'lucide-react';
 
 export function App() {
+  const [activeTab, setActiveTab] = useState<TabType>('home');
   const [cards, setCards] = useState<LawCard[]>(() => loadStoredCards());
   const [decks, setDecks] = useState<LawDeck[]>(() => loadStoredDecks());
   const [numeralSystem, setNumeralSystem] = useState<NumeralSystem>(() => loadStoredNumeralSystem());
@@ -31,7 +33,6 @@ export function App() {
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
-  const [isDeckManagerOpen, setIsDeckManagerOpen] = useState<boolean>(false);
   const [isDeckEditOpen, setIsDeckEditOpen] = useState<boolean>(false);
   const [editingDeck, setEditingDeck] = useState<LawDeck | null>(null);
   const [isDeleteDeckOpen, setIsDeleteDeckOpen] = useState<boolean>(false);
@@ -263,32 +264,31 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-[#111111] flex flex-col font-sans selection:bg-black selection:text-white">
-      {/* Top Header */}
-      <Header
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        selectedDeck={selectedDeck === 'all' ? null : selectedDeck}
-        onSelectDeck={() => {
-          setSelectedDeck(null);
-          setActiveCardId(undefined);
-          setSearchQuery('');
-        }}
-        onOpenAddModal={() => {
-          setPreselectedDeckId(selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined);
-          setIsAddModalOpen(true);
-        }}
-        onOpenImportModal={() => setIsImportModalOpen(true)}
-        onOpenCreateDeckModal={handleOpenCreateDeck}
-        onOpenDeckManagerModal={() => setIsDeckManagerOpen(true)}
-        totalCardsCount={cards.length}
-        totalDecksCount={decks.length}
-        numeralSystem={numeralSystem}
-        onNumeralSystemChange={setNumeralSystem}
-      />
+      {/* Top Header only on Home or simplified */}
+      {activeTab === 'home' && (
+        <Header
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          selectedDeck={selectedDeck === 'all' ? null : selectedDeck}
+          onSelectDeck={() => {
+            setSelectedDeck(null);
+            setActiveCardId(undefined);
+            setSearchQuery('');
+          }}
+          onOpenAddModal={() => {
+            setPreselectedDeckId(selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined);
+            setIsAddModalOpen(true);
+          }}
+          onOpenImportModal={() => setIsImportModalOpen(true)}
+          totalCardsCount={cards.length}
+          totalDecksCount={decks.length}
+          numeralSystem={numeralSystem}
+        />
+      )}
 
       {/* Floating Notification */}
       {importNotification && (
-        <div className="fixed bottom-6 right-6 z-50 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-zinc-700 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
+        <div className="fixed bottom-24 right-6 z-50 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-zinc-700 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <div className="text-xs">
             <p className="font-semibold">{importNotification.message}</p>
@@ -297,7 +297,10 @@ export function App() {
             <button
               onClick={() => {
                 const target = decks.find(d => d.id === importNotification.deckId);
-                if (target) setSelectedDeck(target);
+                if (target) {
+                  setSelectedDeck(target);
+                  setActiveTab('home');
+                }
                 setImportNotification(null);
               }}
               className="ml-2 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-300 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
@@ -308,45 +311,79 @@ export function App() {
         </div>
       )}
 
-      {/* Main View */}
-      <main className="flex-1 w-full pb-12">
-        {selectedDeck === null ? (
-          /* Library Deck Shelves */
-          <DeckGrid
+      {/* Main Content Area */}
+      <main className="flex-1 w-full pb-28">
+        {activeTab === 'home' ? (
+          selectedDeck === null ? (
+            /* Library Deck Shelves */
+            <DeckGrid
+              decks={decks}
+              cards={cards}
+              onSelectDeck={(deck) => {
+                setSelectedDeck(deck);
+                setActiveCardId(undefined);
+                setSearchQuery('');
+              }}
+              searchQuery={searchQuery}
+              onSelectCardDirectly={handleSelectCardDirectly}
+              onOpenCreateDeck={handleOpenCreateDeck}
+              onOpenEditDeck={handleOpenEditDeck}
+              onOpenDeleteDeck={handleOpenDeleteDeck}
+              onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
+              onOpenDeckManager={() => setActiveTab('settings')}
+              numeralSystem={numeralSystem}
+            />
+          ) : (
+            /* Deck Section Reader */
+            <DeckReader
+              deck={selectedDeck}
+              cards={cards}
+              onBackToLibrary={() => {
+                setSelectedDeck(null);
+                setActiveCardId(undefined);
+              }}
+              initialCardId={activeCardId}
+              onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
+              onOpenEditDeck={handleOpenEditDeck}
+              onDeleteCard={handleDeleteCard}
+              numeralSystem={numeralSystem}
+              onNumeralSystemChange={setNumeralSystem}
+            />
+          )
+        ) : (
+          /* iOS Settings Tab */
+          <SettingsView
+            numeralSystem={numeralSystem}
+            onNumeralSystemChange={setNumeralSystem}
             decks={decks}
             cards={cards}
-            onSelectDeck={(deck) => {
-              setSelectedDeck(deck);
-              setActiveCardId(undefined);
-              setSearchQuery('');
-            }}
-            searchQuery={searchQuery}
-            onSelectCardDirectly={handleSelectCardDirectly}
             onOpenCreateDeck={handleOpenCreateDeck}
             onOpenEditDeck={handleOpenEditDeck}
             onOpenDeleteDeck={handleOpenDeleteDeck}
-            onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
-            onOpenDeckManager={() => setIsDeckManagerOpen(true)}
-            numeralSystem={numeralSystem}
-          />
-        ) : (
-          /* Deck Section Reader */
-          <DeckReader
-            deck={selectedDeck}
-            cards={cards}
-            onBackToLibrary={() => {
-              setSelectedDeck(null);
+            onOpenImportModal={() => setIsImportModalOpen(true)}
+            onImportBackup={handleImportBackup}
+            onResetData={handleResetData}
+            onSelectDeckToRead={(deck) => {
+              setSelectedDeck(deck);
               setActiveCardId(undefined);
+              setActiveTab('home');
             }}
-            initialCardId={activeCardId}
-            onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
-            onOpenEditDeck={handleOpenEditDeck}
-            onDeleteCard={handleDeleteCard}
-            numeralSystem={numeralSystem}
-            onNumeralSystemChange={setNumeralSystem}
           />
         )}
       </main>
+
+      {/* iOS 26 Floating Dock */}
+      <IOSDock
+        activeTab={activeTab}
+        onTabChange={(tab) => {
+          setActiveTab(tab);
+          if (tab === 'home' && activeTab === 'home' && selectedDeck) {
+            setSelectedDeck(null);
+          }
+        }}
+        cardsCount={cards.length}
+        decksCount={decks.length}
+      />
 
       {/* Add New Section Modal */}
       <AddSectionModal
@@ -392,29 +429,6 @@ export function App() {
         cards={cards}
         allDecks={decks}
         onConfirmDelete={handleDeleteDeckConfirm}
-      />
-
-      {/* Comprehensive Deck Manager Modal */}
-      <DeckManagerModal
-        isOpen={isDeckManagerOpen}
-        onClose={() => setIsDeckManagerOpen(false)}
-        decks={decks}
-        cards={cards}
-        onOpenCreateDeck={handleOpenCreateDeck}
-        onOpenEditDeck={(deck) => {
-          setIsDeckManagerOpen(false);
-          handleOpenEditDeck(deck);
-        }}
-        onOpenDeleteDeck={(deck) => {
-          setIsDeckManagerOpen(false);
-          handleOpenDeleteDeck(deck);
-        }}
-        onSelectDeckToRead={(deck) => {
-          setSelectedDeck(deck);
-          setActiveCardId(undefined);
-        }}
-        onImportBackup={handleImportBackup}
-        onResetData={handleResetData}
       />
     </div>
   );
