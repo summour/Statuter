@@ -32,7 +32,7 @@ googleProvider.setCustomParameters({
 });
 
 // Firestore Instance with custom database ID if present
-export const db = firebaseConfig.firestoreDatabaseId 
+export const db = (firebaseConfig.firestoreDatabaseId && firebaseConfig.firestoreDatabaseId !== '(default)')
   ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
   : getFirestore(app);
 
