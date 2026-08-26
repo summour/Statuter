@@ -166,7 +166,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const totalDecksCount = decks.length;
 
   return (
-    <div className="max-w-2xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-32">
+    <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+7rem)]">
       {/* Title */}
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">ตั้งค่า</h1>

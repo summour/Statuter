@@ -15,7 +15,7 @@ export const IOSDock: React.FC<IOSDockProps> = ({
   onTabChange,
 }) => {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 select-none pointer-events-auto">
+    <div className="fixed bottom-[calc(env(safe-area-inset-bottom,0px)+1.25rem)] left-1/2 -translate-x-1/2 z-40 select-none pointer-events-auto">
       {/* Floating Frosted Island */}
       <nav 
         aria-label="Bottom Navigation Dock"

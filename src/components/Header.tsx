@@ -41,7 +41,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, [isSearchOpen]);
 
   return (
-    <header className="sticky top-0 z-30 bg-[#F9FAFB]/90 backdrop-blur-md border-b border-zinc-200/60 transition-all">
+    <header className="sticky top-0 z-30 bg-[#F9FAFB]/90 backdrop-blur-md border-b border-zinc-200/60 pt-[env(safe-area-inset-top,0px)] transition-all">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
         {/* If Search is Open in Full width mode */}
         {isSearchOpen ? (
