@@ -37,7 +37,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, [isSearchOpen]);
 
   return (
-    <header className="sticky top-0 z-30 bg-[#F9FAFB]/90 backdrop-blur-md border-b border-zinc-200/60 pt-[env(safe-area-inset-top,0px)] transition-all">
+    <header className="sticky top-0 z-30 bg-[#F9FAFB]/70 backdrop-blur-xl pt-[env(safe-area-inset-top,0px)] transition-all">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between gap-3">
         {/* If Search is Open in Full width mode */}
         {isSearchOpen ? (
@@ -51,7 +51,7 @@ export const Header: React.FC<HeaderProps> = ({
                 placeholder="ค้นหามาตรา, ข้อความกฎหมาย..."
                 value={searchQuery}
                 onChange={(e) => onSearchChange(e.target.value)}
-                className="w-full pl-9 pr-8 py-1.5 text-xs bg-white text-zinc-900 placeholder-zinc-400 rounded-full border border-zinc-200/90 focus:border-zinc-400 focus:outline-none shadow-2xs"
+                className="w-full pl-9 pr-8 py-2 text-xs bg-white/80 backdrop-blur-md text-zinc-900 placeholder-zinc-400 rounded-full border border-zinc-200/60 focus:border-zinc-400 focus:outline-none shadow-2xs transition-all"
               />
               {searchQuery && (
                 <button
@@ -81,7 +81,7 @@ export const Header: React.FC<HeaderProps> = ({
                 <button
                   id="header-back-btn"
                   onClick={() => onSelectDeck(null)}
-                  className="flex items-center gap-1 text-xs font-semibold text-zinc-700 hover:text-zinc-950 px-2.5 py-1 rounded-full hover:bg-zinc-100 transition-colors cursor-pointer"
+                  className="flex items-center gap-1 text-xs font-semibold text-zinc-700 hover:text-zinc-950 px-2.5 py-1 rounded-full hover:bg-black/5 active:bg-black/10 transition-colors cursor-pointer"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   <span className="truncate max-w-[150px] sm:max-w-none">{selectedDeck.name}</span>
@@ -89,12 +89,12 @@ export const Header: React.FC<HeaderProps> = ({
               ) : (
                 <div 
                   onClick={() => onSelectDeck(null)}
-                  className="flex items-center gap-2 select-none cursor-pointer"
+                  className="flex items-center gap-2.5 select-none cursor-pointer group"
                 >
-                  <div className="w-7 h-7 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-2xs">
+                  <div className="w-7 h-7 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-2xs transition-transform group-active:scale-95">
                     <Scale className="w-3.5 h-3.5 text-zinc-100" />
                   </div>
-                  <span className="font-bold text-base text-zinc-900 tracking-tight">Statuter</span>
+                  <span className="font-bold text-lg text-zinc-900 tracking-tight">Statuter</span>
                 </div>
               )}
             </div>
@@ -106,7 +106,7 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => setIsSearchOpen(true)}
                 title="ค้นหา"
                 aria-label="ค้นหา"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
+                className="w-9 h-9 rounded-full flex items-center justify-center text-zinc-600 hover:text-zinc-950 hover:bg-black/5 active:bg-black/10 transition-all cursor-pointer"
               >
                 <Search className="w-4 h-4" />
               </button>
