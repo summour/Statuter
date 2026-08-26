@@ -44,7 +44,6 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
   onResetData,
 }) => {
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [importStatus, setImportStatus] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,19 +58,15 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
 
   // Filtered decks
   const filteredDecks = useMemo(() => {
+    if (!searchQuery.trim()) return decks;
+    const q = searchQuery.toLowerCase().trim();
     return decks.filter(deck => {
-      if (selectedCategory !== 'all' && deck.category !== selectedCategory) return false;
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const inName = (deck.name || '').toLowerCase().includes(q);
-        const inShort = (deck.shortName || '').toLowerCase().includes(q);
-        const inDesc = (deck.description || '').toLowerCase().includes(q);
-        const inCat = (deck.categoryLabel || '').toLowerCase().includes(q);
-        return inName || inShort || inDesc || inCat;
-      }
-      return true;
+      const inName = (deck.name || '').toLowerCase().includes(q);
+      const inShort = (deck.shortName || '').toLowerCase().includes(q);
+      const inDesc = (deck.description || '').toLowerCase().includes(q);
+      return inName || inShort || inDesc;
     });
-  }, [decks, selectedCategory, searchQuery]);
+  }, [decks, searchQuery]);
 
   // Handle JSON backup import
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -141,9 +136,9 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
         </div>
 
         {/* Toolbar: Actions & Search */}
-        <div className="px-6 py-3 border-b border-zinc-200 bg-white flex flex-wrap items-center justify-between gap-3">
+        <div className="px-6 py-3.5 border-b border-zinc-200 bg-white flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="relative flex-1">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
             <input
               type="text"
@@ -155,7 +150,7 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
           </div>
 
           {/* Action Buttons */}
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-2 shrink-0">
             {/* Hidden JSON file input */}
             <input
               ref={fileInputRef}
@@ -168,21 +163,21 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
             {/* Import JSON */}
             <button
               onClick={() => fileInputRef.current?.click()}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 transition-colors cursor-pointer"
               title="นำเข้า JSON"
             >
               <UploadCloud className="w-3.5 h-3.5" />
-              <span>นำเข้า JSON</span>
+              <span>นำเข้า</span>
             </button>
 
             {/* Export All Backup */}
             <button
               onClick={() => exportAllDataToJson(decks, cards)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 transition-colors cursor-pointer"
               title="สำรองข้อมูลทั้งหมด"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>สำรองข้อมูล</span>
+              <span>สำรอง</span>
             </button>
 
             {/* Create New Deck Button */}
@@ -204,66 +199,13 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
           </div>
         )}
 
-        {/* Category Pills Filter */}
-        <div className="px-6 py-2.5 bg-zinc-50 border-b border-zinc-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
-          <button
-            onClick={() => setSelectedCategory('all')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-              selectedCategory === 'all' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
-            }`}
-          >
-            ทั้งหมด ({decks.length})
-          </button>
-          <button
-            onClick={() => setSelectedCategory('code')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-              selectedCategory === 'code' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
-            }`}
-          >
-            ประมวล ({decks.filter(d => d.category === 'code').length})
-          </button>
-          <button
-            onClick={() => setSelectedCategory('proc')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-              selectedCategory === 'proc' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
-            }`}
-          >
-            วิธีพิจารณา ({decks.filter(d => d.category === 'proc').length})
-          </button>
-          <button
-            onClick={() => setSelectedCategory('constitution')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-              selectedCategory === 'constitution' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
-            }`}
-          >
-            รัฐธรรมนูญ ({decks.filter(d => d.category === 'constitution').length})
-          </button>
-          <button
-            onClick={() => setSelectedCategory('act')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-              selectedCategory === 'act' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
-            }`}
-          >
-            พ.ร.บ. ({decks.filter(d => d.category === 'act').length})
-          </button>
-          {decks.some(d => d.category === 'custom') && (
-            <button
-              onClick={() => setSelectedCategory('custom')}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-                selectedCategory === 'custom' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
-              }`}
-            >
-              ส่วนตัว ({decks.filter(d => d.category === 'custom').length})
-            </button>
-          )}
-        </div>
-
         {/* Deck List Table / Card View */}
         <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-zinc-50/50">
           {filteredDecks.length === 0 ? (
-            <div className="bg-white rounded-2xl p-12 text-center border border-zinc-200">
-              <BookOpen className="w-10 h-10 text-zinc-300 mx-auto mb-2" />
-              <h3 className="font-bold text-sm text-zinc-800">ไม่พบสำรับที่ค้นหา</h3>
+            <div className="bg-white rounded-2xl p-10 text-center border border-zinc-200/80 my-4">
+              <BookOpen className="w-8 h-8 text-zinc-300 mx-auto mb-2" />
+              <h3 className="font-bold text-sm text-zinc-700">ไม่พบสำรับกฎหมาย</h3>
+              <p className="text-xs text-zinc-400 mt-1">กดปุ่ม &ldquo;+ สำรับใหม่&rdquo; หรือนำเข้าข้อมูลเพื่อเริ่มต้น</p>
             </div>
           ) : (
             filteredDecks.map((deck) => {

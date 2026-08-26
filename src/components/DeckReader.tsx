@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { LawDeck, LawCard } from '../types';
+import { LawDeck, LawCard, NumeralSystem } from '../types';
 import { 
   ArrowLeft, 
   ArrowRight, 
@@ -16,6 +16,7 @@ import {
   Settings
 } from 'lucide-react';
 import { exportDeckToJson } from '../utils/storage';
+import { formatNumeralText } from '../utils/thaiLawParser';
 
 interface DeckReaderProps {
   deck: LawDeck | 'all';
@@ -25,6 +26,8 @@ interface DeckReaderProps {
   onOpenAddSectionToDeck?: (deckId?: string) => void;
   onOpenEditDeck?: (deck: LawDeck) => void;
   onDeleteCard?: (cardId: string) => void;
+  numeralSystem?: NumeralSystem;
+  onNumeralSystemChange?: (system: NumeralSystem) => void;
 }
 
 export const DeckReader: React.FC<DeckReaderProps> = ({
@@ -35,6 +38,8 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
   onOpenAddSectionToDeck,
   onOpenEditDeck,
   onDeleteCard,
+  numeralSystem = 'arabic',
+  onNumeralSystemChange,
 }) => {
   // Filter cards belonging to this deck
   const rawDeckCards = useMemo(() => {
@@ -250,7 +255,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             >
               {deckCards.map((card, idx) => (
                 <option key={card.id} value={idx}>
-                  {card.sectionNumber} {card.title ? `— ${card.title}` : ''}
+                  {formatNumeralText(card.sectionNumber, numeralSystem)} {card.title ? `— ${formatNumeralText(card.title, numeralSystem)}` : ''}
                 </option>
               ))}
             </select>
@@ -278,6 +283,35 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               <List className="w-4 h-4" />
             </button>
           </div>
+
+          {/* Numeral System In-Reader Toggle */}
+          {onNumeralSystemChange && (
+            <div 
+              className="flex items-center bg-zinc-100 rounded-xl p-0.5 border border-zinc-200"
+              title={`ระบบตัวเลข: ${numeralSystem === 'arabic' ? 'เลขอารบิก (1, 2, 3)' : 'เลขไทย (๑, ๒, ๓)'}`}
+            >
+              <button
+                onClick={() => onNumeralSystemChange('arabic')}
+                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  numeralSystem === 'arabic'
+                    ? 'bg-white text-zinc-900 shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-800'
+                }`}
+              >
+                123
+              </button>
+              <button
+                onClick={() => onNumeralSystemChange('thai')}
+                className={`px-2 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  numeralSystem === 'thai'
+                    ? 'bg-white text-zinc-900 shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-800'
+                }`}
+              >
+                ๑๒๓
+              </button>
+            </div>
+          )}
 
           {/* Text size selector */}
           <button
@@ -322,14 +356,14 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-500 mb-2.5">
                   {card.book && (
                     <span className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md font-medium">
-                      {card.book}
+                      {formatNumeralText(card.book, numeralSystem)}
                     </span>
                   )}
                   {card.titleStructure && (
                     <>
                       <span>›</span>
                       <span className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md font-medium">
-                        {card.titleStructure}
+                        {formatNumeralText(card.titleStructure, numeralSystem)}
                       </span>
                     </>
                   )}
@@ -337,7 +371,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     <>
                       <span>›</span>
                       <span className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md font-medium">
-                        {card.chapter}
+                        {formatNumeralText(card.chapter, numeralSystem)}
                       </span>
                     </>
                   )}
@@ -345,7 +379,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     <>
                       <span>›</span>
                       <span className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md font-medium">
-                        {card.part}
+                        {formatNumeralText(card.part, numeralSystem)}
                       </span>
                     </>
                   )}
@@ -355,16 +389,18 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                 <div className="flex items-start justify-between gap-3 pb-3 border-b border-zinc-100">
                   <div className="flex items-center gap-2.5 flex-wrap">
                     <span className="text-sm font-bold px-2.5 py-1 rounded-lg bg-zinc-900 text-white">
-                      {card.sectionNumber}
+                      {formatNumeralText(card.sectionNumber, numeralSystem)}
                     </span>
                     {card.title && (
-                      <h4 className="font-bold text-sm sm:text-base text-zinc-900">{card.title}</h4>
+                      <h4 className="font-bold text-sm sm:text-base text-zinc-900">
+                        {formatNumeralText(card.title, numeralSystem)}
+                      </h4>
                     )}
                   </div>
 
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => handleCopyText(`${card.deckName} ${card.sectionNumber} ${card.title ? `(${card.title})` : ''}\n\n${card.fullText}`)}
+                      onClick={() => handleCopyText(`${card.deckName} ${formatNumeralText(card.sectionNumber, numeralSystem)} ${card.title ? `(${formatNumeralText(card.title, numeralSystem)})` : ''}\n\n${formatNumeralText(card.fullText, numeralSystem)}`)}
                       className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
                       title="คัดลอกตัวบทกฎหมาย"
                     >
@@ -374,7 +410,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     {onDeleteCard && (
                       <button
                         onClick={() => {
-                          if (window.confirm(`ต้องการลบมาตรา ${card.sectionNumber} ออกจากสำรับใช่หรือไม่?`)) {
+                          if (window.confirm(`ต้องการลบมาตรา ${formatNumeralText(card.sectionNumber, numeralSystem)} ออกจากสำรับใช่หรือไม่?`)) {
                             onDeleteCard(card.id);
                           }
                         }}
@@ -393,12 +429,12 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     card.paragraphs.map((p, pIdx) => (
                       <div key={pIdx} className="flex items-start gap-3">
                         <span className="font-sans text-[11px] font-bold text-zinc-600 bg-zinc-100 px-2 py-0.5 rounded-md shrink-0 mt-0.5">
-                          {p.label}
+                          {formatNumeralText(p.label, numeralSystem)}
                         </span>
                         <p className={`text-zinc-900 leading-relaxed ${
                           fontSize === 'normal' ? 'text-sm sm:text-base' : fontSize === 'large' ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'
                         }`}>
-                          {p.text}
+                          {formatNumeralText(p.text, numeralSystem)}
                         </p>
                       </div>
                     ))
@@ -406,7 +442,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     <p className={`text-zinc-900 whitespace-pre-line leading-relaxed ${
                       fontSize === 'normal' ? 'text-sm sm:text-base' : fontSize === 'large' ? 'text-base sm:text-lg' : 'text-lg sm:text-xl'
                     }`}>
-                      {card.fullText}
+                      {formatNumeralText(card.fullText, numeralSystem)}
                     </p>
                   )}
                 </div>
@@ -444,7 +480,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   {onDeleteCard && (
                     <button
                       onClick={() => {
-                        if (window.confirm(`ต้องการลบมาตรา ${currentCard.sectionNumber} ออกจากสำรับใช่หรือไม่?`)) {
+                        if (window.confirm(`ต้องการลบมาตรา ${formatNumeralText(currentCard.sectionNumber, numeralSystem)} ออกจากสำรับใช่หรือไม่?`)) {
                           onDeleteCard(currentCard.id);
                         }
                       }}
@@ -458,7 +494,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   {/* Copy Statute Button */}
                   <button
                     id="copy-statute-btn"
-                    onClick={() => handleCopyText(`${currentCard.deckName} ${currentCard.sectionNumber} ${currentCard.title ? `(${currentCard.title})` : ''}\n\n${currentCard.fullText}`)}
+                    onClick={() => handleCopyText(`${currentCard.deckName} ${formatNumeralText(currentCard.sectionNumber, numeralSystem)} ${currentCard.title ? `(${formatNumeralText(currentCard.title, numeralSystem)})` : ''}\n\n${formatNumeralText(currentCard.fullText, numeralSystem)}`)}
                     className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
                     title="คัดลอก"
                   >
@@ -481,14 +517,14 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               <div className="flex flex-wrap items-center gap-1.5 text-xs text-zinc-600">
                 {currentCard.book && (
                   <span className="bg-zinc-100/90 text-zinc-800 font-semibold px-2 py-0.5 rounded-md border border-zinc-200">
-                    {currentCard.book}
+                    {formatNumeralText(currentCard.book, numeralSystem)}
                   </span>
                 )}
                 {currentCard.titleStructure && (
                   <>
                     <span className="text-zinc-400">›</span>
                     <span className="bg-zinc-100/90 text-zinc-800 font-semibold px-2 py-0.5 rounded-md border border-zinc-200">
-                      {currentCard.titleStructure}
+                      {formatNumeralText(currentCard.titleStructure, numeralSystem)}
                     </span>
                   </>
                 )}
@@ -496,7 +532,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   <>
                     <span className="text-zinc-400">›</span>
                     <span className="bg-zinc-100/90 text-zinc-800 font-semibold px-2 py-0.5 rounded-md border border-zinc-200">
-                      {currentCard.chapter}
+                      {formatNumeralText(currentCard.chapter, numeralSystem)}
                     </span>
                   </>
                 )}
@@ -504,7 +540,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   <>
                     <span className="text-zinc-400">›</span>
                     <span className="bg-zinc-100/90 text-zinc-800 font-semibold px-2 py-0.5 rounded-md border border-zinc-200">
-                      {currentCard.part}
+                      {formatNumeralText(currentCard.part, numeralSystem)}
                     </span>
                   </>
                 )}
@@ -515,11 +551,11 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             <div className="pt-4 pb-2">
               <div className="flex items-center gap-2.5 mb-1.5">
                 <span className="text-base sm:text-lg font-extrabold px-3 py-1 rounded-xl bg-zinc-900 text-white tracking-wide">
-                  {currentCard.sectionNumber}
+                  {formatNumeralText(currentCard.sectionNumber, numeralSystem)}
                 </span>
                 {currentCard.title && (
                   <h3 className="text-base sm:text-lg font-bold text-zinc-900 leading-snug">
-                    {currentCard.title}
+                    {formatNumeralText(currentCard.title, numeralSystem)}
                   </h3>
                 )}
               </div>
@@ -532,7 +568,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   currentCard.paragraphs.map((p, pIdx) => (
                     <div key={pIdx} className="flex items-start gap-3">
                       <span className="font-sans text-[11px] font-bold text-zinc-700 bg-zinc-200/80 px-2 py-0.5 rounded-md shrink-0 mt-0.5 select-none">
-                        {p.label}
+                        {formatNumeralText(p.label, numeralSystem)}
                       </span>
                       <p className={`font-serif text-zinc-900 leading-relaxed ${
                         fontSize === 'normal' 
@@ -541,7 +577,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                           ? 'text-base sm:text-lg' 
                           : 'text-lg sm:text-xl'
                       }`}>
-                        {p.text}
+                        {formatNumeralText(p.text, numeralSystem)}
                       </p>
                     </div>
                   ))
@@ -553,7 +589,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                       ? 'text-base sm:text-lg' 
                       : 'text-lg sm:text-xl'
                   }`}>
-                    {currentCard.fullText}
+                    {formatNumeralText(currentCard.fullText, numeralSystem)}
                   </div>
                 )}
               </div>
@@ -607,7 +643,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
                 }`}
               >
-                {card.sectionNumber}
+                {formatNumeralText(card.sectionNumber, numeralSystem)}
               </button>
             ))}
           </div>

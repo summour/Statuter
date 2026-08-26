@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { LawDeck, LawCard, LawParagraph } from '../types';
 import { stripFootnotes } from '../utils/thaiLawParser';
-import { X, Plus, BookOpen } from 'lucide-react';
+import { X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface AddSectionModalProps {
   isOpen: boolean;
@@ -19,6 +19,7 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
   defaultDeckId,
 }) => {
   const [deckId, setDeckId] = useState<string>(defaultDeckId || decks[0]?.id || 'criminal');
+  const [showStructure, setShowStructure] = useState(false);
   const [book, setBook] = useState('');
   const [titleStructure, setTitleStructure] = useState('');
   const [chapter, setChapter] = useState('');
@@ -108,35 +109,34 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs">
-      <div className="bg-white rounded-3xl w-full max-w-xl max-h-[90vh] overflow-y-auto border border-zinc-200 shadow-2xl p-6 sm:p-7">
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-100 mb-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-in fade-in duration-150">
+      <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden border border-zinc-200/80 shadow-2xl p-5 text-zinc-900">
+        {/* Header */}
+        <div className="flex items-center justify-between pb-3 border-b border-zinc-100 mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center">
               <Plus className="w-4 h-4" />
             </div>
-            <div>
-              <h3 className="font-bold text-base text-zinc-900">เพิ่มมาตราใหม่</h3>
-            </div>
+            <h3 className="font-bold text-sm text-zinc-900">เพิ่มมาตราใหม่</h3>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full hover:bg-zinc-100 text-zinc-400 hover:text-zinc-700 transition-colors cursor-pointer"
+            className="w-7 h-7 rounded-lg flex items-center justify-center text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors cursor-pointer"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-3.5">
           {/* Deck select */}
           <div>
-            <label className="block text-xs font-bold text-zinc-800 mb-1">
-              สำรับ <span className="text-red-500">*</span>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1">
+              สำรับกฎหมาย
             </label>
             <select
               value={deckId}
               onChange={(e) => setDeckId(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+              className="w-full px-3 py-2 text-xs sm:text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:border-zinc-900 transition-colors"
             >
               {decks.map(d => (
                 <option key={d.id} value={d.id}>
@@ -146,126 +146,111 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
             </select>
           </div>
 
-          {/* Legal Structure System (บรรพ / ลักษณะ / หมวด / ส่วน) */}
-          <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-200 space-y-3">
-            <span className="text-xs font-bold text-zinc-800 block">
-              โครงสร้าง (ถ้ามี)
-            </span>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 mb-1">
-                  บรรพ / ภาค
-                </label>
-                <input
-                  type="text"
-                  placeholder="เช่น ภาค ๑ หรือ บรรพ ๑"
-                  value={book}
-                  onChange={(e) => setBook(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 mb-1">
-                  ลักษณะ
-                </label>
-                <input
-                  type="text"
-                  placeholder="เช่น ลักษณะ ๑"
-                  value={titleStructure}
-                  onChange={(e) => setTitleStructure(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 mb-1">
-                  หมวด
-                </label>
-                <input
-                  type="text"
-                  placeholder="เช่น หมวด ๔"
-                  value={chapter}
-                  onChange={(e) => setChapter(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-semibold text-zinc-600 mb-1">
-                  ส่วน
-                </label>
-                <input
-                  type="text"
-                  placeholder="เช่น ส่วนที่ ๑"
-                  value={part}
-                  onChange={(e) => setPart(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900"
-                />
-              </div>
-            </div>
-          </div>
-
           {/* Section Number & Title */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <div>
-              <label className="block text-xs font-bold text-zinc-800 mb-1">
+          <div className="grid grid-cols-3 gap-2.5">
+            <div className="col-span-1">
+              <label className="block text-xs font-semibold text-zinc-700 mb-1">
                 เลขมาตรา <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="เช่น 59"
+                placeholder="เช่น 59 หรือ ๑"
                 value={sectionNumber}
                 onChange={(e) => setSectionNumber(e.target.value)}
                 required
-                className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                autoFocus
+                className="w-full px-3 py-2 text-xs sm:text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:border-zinc-900 transition-colors"
               />
             </div>
 
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-bold text-zinc-800 mb-1">
-                หัวข้อมาตรา
+            <div className="col-span-2">
+              <label className="block text-xs font-semibold text-zinc-700 mb-1">
+                หัวข้อมาตรา <span className="text-zinc-400 font-normal">(ถ้ามี)</span>
               </label>
               <input
                 type="text"
                 placeholder="เช่น ความรับผิดในทางอาญา"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
+                className="w-full px-3 py-2 text-xs sm:text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:border-zinc-900 transition-colors"
               />
             </div>
           </div>
 
-          {/* Full Text (วรรค / อนุ) */}
+          {/* Full Text */}
           <div>
-            <label className="block text-xs font-bold text-zinc-800 mb-1">
-              ตัวบท <span className="text-red-500">*</span>
+            <label className="block text-xs font-semibold text-zinc-700 mb-1">
+              ตัวบทกฎหมาย <span className="text-red-500">*</span>
             </label>
             <textarea
-              placeholder={`บุคคลจะต้องรับผิดในทางอาญาก็ต่อเมื่อได้กระทำโดยเจตนา...`}
+              placeholder="กรอกข้อความตัวบทกฎหมาย..."
               value={fullText}
               onChange={(e) => setFullText(e.target.value)}
               required
-              rows={5}
-              className="w-full px-3.5 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 leading-relaxed"
+              rows={4}
+              className="w-full px-3.5 py-2 text-xs sm:text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:border-zinc-900 transition-colors leading-relaxed"
             />
           </div>
 
+          {/* Optional Structure Accordion */}
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowStructure(!showStructure)}
+              className="flex items-center gap-1 text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer"
+            >
+              {showStructure ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              <span>{showStructure ? 'ซ่อนโครงสร้างกฎหมาย' : '+ ระบุโครงสร้าง (บรรพ/ลักษณะ/หมวด)'}</span>
+            </button>
+
+            {showStructure && (
+              <div className="grid grid-cols-2 gap-2 mt-2 p-2.5 bg-zinc-50 rounded-xl border border-zinc-200">
+                <input
+                  type="text"
+                  placeholder="บรรพ / ภาค"
+                  value={book}
+                  onChange={(e) => setBook(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900"
+                />
+                <input
+                  type="text"
+                  placeholder="ลักษณะ"
+                  value={titleStructure}
+                  onChange={(e) => setTitleStructure(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900"
+                />
+                <input
+                  type="text"
+                  placeholder="หมวด"
+                  value={chapter}
+                  onChange={(e) => setChapter(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900"
+                />
+                <input
+                  type="text"
+                  placeholder="ส่วน"
+                  value={part}
+                  onChange={(e) => setPart(e.target.value)}
+                  className="px-2.5 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:border-zinc-900"
+                />
+              </div>
+            )}
+          </div>
+
           {/* Actions */}
-          <div className="pt-3 border-t border-zinc-100 flex items-center justify-end gap-2.5">
+          <div className="pt-3 border-t border-zinc-100 flex items-center justify-end gap-2">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-zinc-600 hover:bg-zinc-100 rounded-xl transition-colors cursor-pointer"
+              className="px-3.5 py-1.5 text-xs font-semibold text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors shadow-2xs cursor-pointer"
+              className="px-4 py-1.5 text-xs font-bold bg-zinc-900 hover:bg-black text-white rounded-xl shadow-xs transition-colors cursor-pointer"
             >
-              บันทึก
+              บันทึกมาตรา
             </button>
           </div>
         </form>

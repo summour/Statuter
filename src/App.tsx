@@ -7,19 +7,22 @@ import { ImportLawModal } from './components/ImportLawModal';
 import { DeckEditModal } from './components/DeckEditModal';
 import { DeleteDeckModal } from './components/DeleteDeckModal';
 import { DeckManagerModal } from './components/DeckManagerModal';
-import { LawDeck, LawCard } from './types';
+import { LawDeck, LawCard, NumeralSystem } from './types';
 import { LAW_DECKS, INITIAL_LAW_CARDS } from './data/defaultDecks';
 import { 
   loadStoredCards, 
   saveStoredCards, 
   loadStoredDecks, 
-  saveStoredDecks 
+  saveStoredDecks,
+  loadStoredNumeralSystem,
+  saveStoredNumeralSystem
 } from './utils/storage';
 import { CheckCircle2 } from 'lucide-react';
 
 export function App() {
   const [cards, setCards] = useState<LawCard[]>(() => loadStoredCards());
   const [decks, setDecks] = useState<LawDeck[]>(() => loadStoredDecks());
+  const [numeralSystem, setNumeralSystem] = useState<NumeralSystem>(() => loadStoredNumeralSystem());
   const [selectedDeck, setSelectedDeck] = useState<LawDeck | 'all' | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCardId, setActiveCardId] = useState<string | undefined>(undefined);
@@ -44,6 +47,11 @@ export function App() {
   useEffect(() => {
     saveStoredDecks(decks);
   }, [decks]);
+
+  // Sync numeral system preference to localStorage
+  useEffect(() => {
+    saveStoredNumeralSystem(numeralSystem);
+  }, [numeralSystem]);
 
   // Save new single card
   const handleSaveCard = useCallback((newCard: LawCard) => {
@@ -274,6 +282,8 @@ export function App() {
         onOpenDeckManagerModal={() => setIsDeckManagerOpen(true)}
         totalCardsCount={cards.length}
         totalDecksCount={decks.length}
+        numeralSystem={numeralSystem}
+        onNumeralSystemChange={setNumeralSystem}
       />
 
       {/* Floating Notification */}
@@ -317,6 +327,7 @@ export function App() {
             onOpenDeleteDeck={handleOpenDeleteDeck}
             onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
             onOpenDeckManager={() => setIsDeckManagerOpen(true)}
+            numeralSystem={numeralSystem}
           />
         ) : (
           /* Deck Section Reader */
@@ -331,6 +342,8 @@ export function App() {
             onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
             onOpenEditDeck={handleOpenEditDeck}
             onDeleteCard={handleDeleteCard}
+            numeralSystem={numeralSystem}
+            onNumeralSystemChange={setNumeralSystem}
           />
         )}
       </main>

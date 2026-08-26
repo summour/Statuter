@@ -1,8 +1,29 @@
-import { LawCard, LawDeck } from '../types';
+import { LawCard, LawDeck, NumeralSystem } from '../types';
 import { LAW_DECKS, INITIAL_LAW_CARDS } from '../data/defaultDecks';
 
 const CARDS_STORAGE_KEY = 'law_library_cards_v4';
 const DECKS_STORAGE_KEY = 'law_library_decks_v4';
+const NUMERAL_SYSTEM_KEY = 'statutler_numeral_system_pref';
+
+export function loadStoredNumeralSystem(): NumeralSystem {
+  try {
+    const data = localStorage.getItem(NUMERAL_SYSTEM_KEY);
+    if (data === 'arabic' || data === 'thai' || data === 'original') {
+      return data;
+    }
+  } catch (e) {
+    console.error('Failed to load numeral system pref', e);
+  }
+  return 'arabic'; // Default to modern Arabic digits for easy study
+}
+
+export function saveStoredNumeralSystem(system: NumeralSystem): void {
+  try {
+    localStorage.setItem(NUMERAL_SYSTEM_KEY, system);
+  } catch (e) {
+    console.error('Failed to save numeral system pref', e);
+  }
+}
 
 export function loadStoredDecks(): LawDeck[] {
   try {

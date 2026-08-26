@@ -8,7 +8,7 @@ import {
   FolderPlus,
   Settings
 } from 'lucide-react';
-import { LawDeck } from '../types';
+import { LawDeck, NumeralSystem } from '../types';
 
 interface HeaderProps {
   searchQuery: string;
@@ -21,6 +21,8 @@ interface HeaderProps {
   onOpenDeckManagerModal: () => void;
   totalCardsCount: number;
   totalDecksCount: number;
+  numeralSystem: NumeralSystem;
+  onNumeralSystemChange: (system: NumeralSystem) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -34,6 +36,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenDeckManagerModal,
   totalCardsCount,
   totalDecksCount,
+  numeralSystem,
+  onNumeralSystemChange,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-zinc-200 shadow-2xs">
@@ -50,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             <h1 className="font-bold text-base sm:text-lg text-zinc-900 leading-none tracking-tight">Statutler</h1>
             <p className="text-[11px] text-zinc-500 mt-0.5 hidden sm:block">
-              {selectedDeck ? selectedDeck.shortName : `${totalDecksCount} สำรับ • ${totalCardsCount} มาตรา`}
+              {selectedDeck ? selectedDeck.shortName : (numeralSystem === 'thai' ? `${totalDecksCount.toString().replace(/\d/g, d => '๐๑๒๓๔๕๖๗๘๙'[parseInt(d)])} สำรับ • ${totalCardsCount.toString().replace(/\d/g, d => '๐๑๒๓๔๕๖๗๘๙'[parseInt(d)])} มาตรา` : `${totalDecksCount} สำรับ • ${totalCardsCount} มาตรา`)}
             </p>
           </div>
         </div>
@@ -61,7 +65,7 @@ export const Header: React.FC<HeaderProps> = ({
           <input
             id="law-search-input"
             type="text"
-            placeholder="ค้นหามาตรา, คำสำคัญ..."
+            placeholder="ค้นหามาตรา (1 หรือ ๑), คำสำคัญ..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-zinc-100/80 hover:bg-zinc-100 focus:bg-white text-zinc-900 placeholder-zinc-400 rounded-xl border border-transparent focus:border-zinc-300 focus:outline-none transition-all"
@@ -78,6 +82,35 @@ export const Header: React.FC<HeaderProps> = ({
 
         {/* Right: Actions */}
         <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+          {/* Numeral System Toggle Switch */}
+          <div 
+            className="flex items-center bg-zinc-100 rounded-xl p-0.5 border border-zinc-200" 
+            title={`ระบบตัวเลข: ${numeralSystem === 'arabic' ? 'เลขอารบิก (1, 2, 3)' : 'เลขไทย (๑, ๒, ๓)'}`}
+          >
+            <button
+              id="numeral-system-arabic-btn"
+              onClick={() => onNumeralSystemChange('arabic')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                numeralSystem === 'arabic'
+                  ? 'bg-white text-zinc-900 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              123
+            </button>
+            <button
+              id="numeral-system-thai-btn"
+              onClick={() => onNumeralSystemChange('thai')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                numeralSystem === 'thai'
+                  ? 'bg-white text-zinc-900 shadow-xs'
+                  : 'text-zinc-500 hover:text-zinc-800'
+              }`}
+            >
+              ๑๒๓
+            </button>
+          </div>
+
           {/* Deck Manager Button */}
           <button
             id="header-deck-manager-btn"

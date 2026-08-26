@@ -1,7 +1,8 @@
-import { LawParagraph, ParsedLawSection, ImportAuditReport, LawCard } from '../types';
+import { LawParagraph, ParsedLawSection, ImportAuditReport, LawCard, NumeralSystem } from '../types';
 
 // Convert Thai numerals string to standard Arabic number string
 export function thaiToArabicDigits(str: string): string {
+  if (!str) return '';
   const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
   let res = str;
   thaiDigits.forEach((digit, index) => {
@@ -12,12 +13,35 @@ export function thaiToArabicDigits(str: string): string {
 
 // Convert Arabic digits to Thai digits
 export function arabicToThaiDigits(str: string): string {
+  if (!str) return '';
   const thaiDigits = ['๐', '๑', '๒', '๓', '๔', '๕', '๖', '๗', '๘', '๙'];
   let res = str;
   for (let i = 0; i <= 9; i++) {
     res = res.replaceAll(i.toString(), thaiDigits[i]);
   }
   return res;
+}
+
+// Format any text according to selected NumeralSystem preference
+export function formatNumeralText(text: string | undefined | null, system: NumeralSystem): string {
+  if (!text) return '';
+  if (system === 'arabic') {
+    return thaiToArabicDigits(text);
+  }
+  if (system === 'thai') {
+    return arabicToThaiDigits(text);
+  }
+  return text;
+}
+
+// Format structured paragraphs with selected NumeralSystem
+export function formatParagraphs(paragraphs: LawParagraph[] | undefined, system: NumeralSystem): LawParagraph[] | undefined {
+  if (!paragraphs) return undefined;
+  if (system === 'original') return paragraphs;
+  return paragraphs.map(p => ({
+    label: formatNumeralText(p.label, system),
+    text: formatNumeralText(p.text, system),
+  }));
 }
 
 // Calculate sortable raw number from section string (e.g. "มาตรา ๑๙๓/๑" -> 193.001)

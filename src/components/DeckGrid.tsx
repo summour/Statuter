@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { LawDeck, LawCard } from '../types';
+import { LawDeck, LawCard, NumeralSystem } from '../types';
 import { renderDeckIcon } from './DeckIconHelper';
 import { 
   ArrowRight,
@@ -14,6 +14,7 @@ import {
   Settings
 } from 'lucide-react';
 import { exportDeckToJson } from '../utils/storage';
+import { formatNumeralText, thaiToArabicDigits, arabicToThaiDigits } from '../utils/thaiLawParser';
 
 interface DeckGridProps {
   decks: LawDeck[];
@@ -26,6 +27,7 @@ interface DeckGridProps {
   onOpenDeleteDeck: (deck: LawDeck) => void;
   onOpenAddSectionToDeck: (deckId: string) => void;
   onOpenDeckManager: () => void;
+  numeralSystem?: NumeralSystem;
 }
 
 export const DeckGrid: React.FC<DeckGridProps> = ({
@@ -39,9 +41,8 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
   onOpenDeleteDeck,
   onOpenAddSectionToDeck,
   onOpenDeckManager,
+  numeralSystem = 'arabic',
 }) => {
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
   // Card count by deck
   const deckCardCounts = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -54,24 +55,29 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
   // Search filtered cards
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return null;
-    const query = searchQuery.toLowerCase().trim();
-    return cards.filter(card => 
-      card.sectionNumber.toLowerCase().includes(query) ||
-      (card.title && card.title.toLowerCase().includes(query)) ||
-      card.deckName.toLowerCase().includes(query) ||
-      card.deckShortName.toLowerCase().includes(query) ||
-      card.fullText.toLowerCase().includes(query) ||
-      (card.book && card.book.toLowerCase().includes(query)) ||
-      (card.titleStructure && card.titleStructure.toLowerCase().includes(query)) ||
-      (card.chapter && card.chapter.toLowerCase().includes(query))
-    );
-  }, [cards, searchQuery]);
+    const rawQ = searchQuery.toLowerCase().trim();
+    const arabicQ = thaiToArabicDigits(rawQ);
+    const thaiQ = arabicToThaiDigits(rawQ);
 
-  // Filtered decks based on category
-  const filteredDecks = useMemo(() => {
-    if (selectedCategory === 'all') return decks;
-    return decks.filter(d => d.category === selectedCategory);
-  }, [decks, selectedCategory]);
+    return cards.filter(card => {
+      const rawSec = card.sectionNumber.toLowerCase();
+      const arabicSec = thaiToArabicDigits(rawSec);
+      const thaiSec = arabicToThaiDigits(rawSec);
+
+      const matchSec = rawSec.includes(rawQ) || arabicSec.includes(arabicQ) || thaiSec.includes(thaiQ);
+      const matchTitle = card.title && (
+        card.title.toLowerCase().includes(rawQ) || 
+        thaiToArabicDigits(card.title.toLowerCase()).includes(arabicQ)
+      );
+      const matchDeck = card.deckName.toLowerCase().includes(rawQ) || card.deckShortName.toLowerCase().includes(rawQ);
+      const matchText = card.fullText.toLowerCase().includes(rawQ) || thaiToArabicDigits(card.fullText.toLowerCase()).includes(arabicQ);
+      const matchHierarchy = (card.book && card.book.toLowerCase().includes(rawQ)) ||
+        (card.titleStructure && card.titleStructure.toLowerCase().includes(rawQ)) ||
+        (card.chapter && card.chapter.toLowerCase().includes(rawQ));
+
+      return matchSec || matchTitle || matchDeck || matchText || matchHierarchy;
+    });
+  }, [cards, searchQuery]);
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
@@ -106,25 +112,25 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
                         {card.deckShortName}
                       </span>
                       <span className="text-xs font-bold text-zinc-900 bg-zinc-50 px-2 py-0.5 rounded-md border border-zinc-200">
-                        {card.sectionNumber}
+                        {formatNumeralText(card.sectionNumber, numeralSystem)}
                       </span>
                     </div>
 
                     {card.title && (
                       <h3 className="font-bold text-sm text-zinc-900 group-hover:text-black transition-colors line-clamp-1">
-                        {card.title}
+                        {formatNumeralText(card.title, numeralSystem)}
                       </h3>
                     )}
 
                     {/* Legal Hierarchy snippet */}
                     {(card.book || card.chapter) && (
                       <p className="text-[11px] text-zinc-400 mt-1 font-medium">
-                        {[card.book, card.titleStructure, card.chapter].filter(Boolean).join(' › ')}
+                        {[card.book, card.titleStructure, card.chapter].filter(Boolean).map(h => formatNumeralText(h, numeralSystem)).join(' › ')}
                       </p>
                     )}
 
                     <p className="text-xs text-zinc-600 mt-2 line-clamp-3 leading-relaxed font-serif">
-                      {card.fullText}
+                      {formatNumeralText(card.fullText, numeralSystem)}
                     </p>
                   </div>
 
@@ -142,77 +148,6 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
       ) : (
         /* Regular Library Shelf View */
         <div>
-          {/* Category Filter Tabs */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-3 mb-6 no-scrollbar">
-            <button
-              onClick={() => setSelectedCategory('all')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === 'all'
-                  ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-              }`}
-            >
-              ทั้งหมด ({decks.length})
-            </button>
-
-            <button
-              onClick={() => setSelectedCategory('code')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === 'code'
-                  ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-              }`}
-            >
-              ประมวล ({decks.filter(d => d.category === 'code').length})
-            </button>
-
-            <button
-              onClick={() => setSelectedCategory('proc')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === 'proc'
-                  ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-              }`}
-            >
-              วิธีพิจารณา ({decks.filter(d => d.category === 'proc').length})
-            </button>
-
-            <button
-              onClick={() => setSelectedCategory('constitution')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === 'constitution'
-                  ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-              }`}
-            >
-              รัฐธรรมนูญ ({decks.filter(d => d.category === 'constitution').length})
-            </button>
-
-            <button
-              onClick={() => setSelectedCategory('act')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                selectedCategory === 'act'
-                  ? 'bg-zinc-900 text-white shadow-xs'
-                  : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-              }`}
-            >
-              พ.ร.บ. ({decks.filter(d => d.category === 'act').length})
-            </button>
-
-            {decks.some(d => d.category === 'custom') && (
-              <button
-                onClick={() => setSelectedCategory('custom')}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
-                  selectedCategory === 'custom'
-                    ? 'bg-zinc-900 text-white shadow-xs'
-                    : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-                }`}
-              >
-                ส่วนตัว ({decks.filter(d => d.category === 'custom').length})
-              </button>
-            )}
-          </div>
-
           {/* Decks Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             
@@ -230,7 +165,7 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
             </div>
 
             {/* Render Each Deck Card */}
-            {filteredDecks.map((deck) => {
+            {decks.map((deck) => {
               const cardCount = deckCardCounts[deck.id] || 0;
               return (
                 <div
@@ -315,7 +250,7 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
                   {/* Bottom row: Card count and arrow */}
                   <div className="mt-4 pt-3 border-t border-zinc-100 flex items-center justify-between text-xs text-zinc-500">
                     <span className="font-semibold">
-                      {cardCount} มาตรา
+                      {formatNumeralText(`${cardCount} มาตรา`, numeralSystem)}
                     </span>
                     <span className="font-medium text-zinc-900 group-hover:translate-x-0.5 transition-transform flex items-center gap-1">
                       <ArrowRight className="w-3.5 h-3.5" />

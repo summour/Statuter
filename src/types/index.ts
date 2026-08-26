@@ -1,3 +1,5 @@
+export type NumeralSystem = 'arabic' | 'thai' | 'original';
+
 export interface LawParagraph {
   label: string; // e.g. "วรรคหนึ่ง", "วรรคสอง", "(๑)", "(๒)"
   text: string;
