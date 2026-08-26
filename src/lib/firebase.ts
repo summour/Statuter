@@ -134,17 +134,78 @@ export async function logOut(): Promise<void> {
   }
 }
 
-// Chunk size: 150 cards per document chunk to keep each document ~100-200KB (far below 1MB limit)
-const CARDS_PER_CHUNK = 150;
+// Chunk size: 100 cards per document chunk to keep each document ~80-150KB (far below 1MB limit)
+const CARDS_PER_CHUNK = 100;
+
+// Deep sanitize object to remove any `undefined` values that crash Firestore
+function cleanForFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data, (key, value) => {
+    return value === undefined ? null : value;
+  }));
+}
 
 // Helper: Wrap promise with timeout
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 25000, errorMsg: string = 'การเชื่อมต่อคลาวด์หมดเวลา (Timeout)'): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 60000, errorMsg: string = 'การเชื่อมต่อคลาวด์หมดเวลา (Timeout)'): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) => 
       setTimeout(() => reject(new Error(errorMsg)), timeoutMs)
     )
   ]);
+}
+
+// Batch Writer with operation limits and data sanitization
+class SafeBatchWriter {
+  private batches: ReturnType<typeof writeBatch>[] = [];
+  private currentBatch: ReturnType<typeof writeBatch>;
+  private opCounts: number[] = [];
+  private currentCount = 0;
+  private readonly maxOpsPerBatch = 250;
+
+  constructor() {
+    this.currentBatch = writeBatch(db);
+    this.batches.push(this.currentBatch);
+    this.opCounts.push(0);
+  }
+
+  set(docRef: any, data: any, options?: { merge?: boolean }) {
+    if (this.currentCount >= this.maxOpsPerBatch) {
+      this.currentBatch = writeBatch(db);
+      this.batches.push(this.currentBatch);
+      this.opCounts.push(0);
+      this.currentCount = 0;
+    }
+    const cleanData = cleanForFirestore(data);
+    if (options?.merge) {
+      this.currentBatch.set(docRef, cleanData, { merge: true });
+    } else {
+      this.currentBatch.set(docRef, cleanData);
+    }
+    this.currentCount++;
+    this.opCounts[this.opCounts.length - 1] = this.currentCount;
+  }
+
+  delete(docRef: any) {
+    if (this.currentCount >= this.maxOpsPerBatch) {
+      this.currentBatch = writeBatch(db);
+      this.batches.push(this.currentBatch);
+      this.opCounts.push(0);
+      this.currentCount = 0;
+    }
+    this.currentBatch.delete(docRef);
+    this.currentCount++;
+    this.opCounts[this.opCounts.length - 1] = this.currentCount;
+  }
+
+  async commitAll(onProgress?: (step: string) => void) {
+    const activeBatches = this.batches.filter((_, idx) => this.opCounts[idx] > 0);
+    if (activeBatches.length === 0) return;
+
+    for (let i = 0; i < activeBatches.length; i++) {
+      onProgress?.(`กำลังบันทึกข้อมูลส่วนที่ ${i + 1}/${activeBatches.length}...`);
+      await activeBatches[i].commit();
+    }
+  }
 }
 
 // Sync user decks and cards to Cloud (Firebase Firestore) with High-Performance Chunking
@@ -157,7 +218,7 @@ export async function syncDataToCloud(
   if (!userId) throw new Error('ไม่พบข้อมูลผู้ใช้สำหรับการซิงค์');
 
   const startTime = Date.now();
-  onProgress?.('กำลังเตรียมโครงสร้างข้อมูลและบีบอัดสำรับ...');
+  onProgress?.('กำลังจัดกลุ่มและเตรียมข้อมูลตัวบทกฎหมาย...');
 
   const performSync = async () => {
     // 1. Group cards by deckId
@@ -169,6 +230,8 @@ export async function syncDataToCloud(
       cardsByDeck[card.deckId].push(card);
     }
 
+    const batchWriter = new SafeBatchWriter();
+
     // 2. Fetch existing chunks to clean up obsolete chunks if any
     let existingChunkIds: string[] = [];
     try {
@@ -178,33 +241,25 @@ export async function syncDataToCloud(
       console.warn('Could not list existing chunks, will overwrite/set directly:', err);
     }
 
-    onProgress?.(`กำลังบันทึกข้อมูล ${decks.length} สำรับ (${cards.length} มาตรา) ขึ้นคลาวด์...`);
-
-    // Prepare writes across safe batches (max 300 writes per batch)
-    const BATCH_LIMIT = 300;
-    let currentBatch = writeBatch(db);
-    let currentBatchOps = 0;
-    const batchList: ReturnType<typeof writeBatch>[] = [currentBatch];
-
-    const addBatchOp = (fn: (b: ReturnType<typeof writeBatch>) => void) => {
-      if (currentBatchOps >= BATCH_LIMIT) {
-        currentBatch = writeBatch(db);
-        batchList.push(currentBatch);
-        currentBatchOps = 0;
-      }
-      fn(currentBatch);
-      currentBatchOps++;
-    };
+    onProgress?.(`กำลังเตรียมบันทึก ${decks.length} สำรับ (${cards.length} มาตรา)...`);
 
     // A. Write deck documents
     for (const deck of decks) {
       const deckRef = doc(db, 'users', userId, 'decks', deck.id);
-      addBatchOp((b) => {
-        b.set(deckRef, {
-          ...deck,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      });
+      batchWriter.set(deckRef, {
+        id: deck.id,
+        name: deck.name || '',
+        shortName: deck.shortName || '',
+        description: deck.description || '',
+        iconName: deck.iconName || 'BookOpen',
+        color: deck.color || '#18181b',
+        category: deck.category || 'custom',
+        categoryLabel: deck.categoryLabel || '',
+        totalCards: (cardsByDeck[deck.id] || []).length,
+        isDefault: Boolean(deck.isDefault),
+        createdAt: deck.createdAt || Date.now(),
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
     }
 
     // B. Write card chunks for each deck
@@ -215,19 +270,16 @@ export async function syncDataToCloud(
       const totalChunks = Math.ceil(deckCards.length / CARDS_PER_CHUNK) || 1;
 
       if (deckCards.length === 0) {
-        // Empty chunk for deck with 0 cards
         const chunkId = `${deck.id}_chunk_0`;
         newChunkIds.add(chunkId);
         const chunkRef = doc(db, 'users', userId, 'deck_chunks', chunkId);
-        addBatchOp((b) => {
-          b.set(chunkRef, {
-            deckId: deck.id,
-            chunkIndex: 0,
-            totalChunks: 1,
-            count: 0,
-            cards: [],
-            updatedAt: new Date().toISOString()
-          });
+        batchWriter.set(chunkRef, {
+          deckId: deck.id,
+          chunkIndex: 0,
+          totalChunks: 1,
+          count: 0,
+          cards: [],
+          updatedAt: new Date().toISOString()
         });
       } else {
         for (let i = 0; i < totalChunks; i++) {
@@ -237,15 +289,13 @@ export async function syncDataToCloud(
           newChunkIds.add(chunkId);
           const chunkRef = doc(db, 'users', userId, 'deck_chunks', chunkId);
 
-          addBatchOp((b) => {
-            b.set(chunkRef, {
-              deckId: deck.id,
-              chunkIndex: i,
-              totalChunks,
-              count: chunkCards.length,
-              cards: chunkCards,
-              updatedAt: new Date().toISOString()
-            });
+          batchWriter.set(chunkRef, {
+            deckId: deck.id,
+            chunkIndex: i,
+            totalChunks,
+            count: chunkCards.length,
+            cards: chunkCards.map(c => cleanForFirestore(c)),
+            updatedAt: new Date().toISOString()
           });
         }
       }
@@ -255,36 +305,37 @@ export async function syncDataToCloud(
     for (const oldId of existingChunkIds) {
       if (!newChunkIds.has(oldId)) {
         const oldRef = doc(db, 'users', userId, 'deck_chunks', oldId);
-        addBatchOp((b) => {
-          b.delete(oldRef);
-        });
+        batchWriter.delete(oldRef);
       }
     }
 
     // D. Update user metadata
     const userRef = doc(db, 'users', userId);
-    addBatchOp((b) => {
-      b.set(userRef, {
-        lastSyncAt: new Date().toISOString(),
-        totalDecks: decks.length,
-        totalCards: cards.length,
-        syncEngineVersion: 2
-      }, { merge: true });
-    });
+    batchWriter.set(userRef, {
+      lastSyncAt: new Date().toISOString(),
+      totalDecks: decks.length,
+      totalCards: cards.length,
+      syncEngineVersion: 2
+    }, { merge: true });
 
-    // Commit all batches in parallel
-    await Promise.all(batchList.map(b => b.commit()));
+    // Commit all safe batches
+    await batchWriter.commitAll((status) => onProgress?.(status));
   };
 
   try {
-    await withTimeout(performSync(), 30000, 'การซิงค์ข้อมูลขึ้นคลาวด์ใช้เวลานานเกินไป กรุณาตรวจสอบอินเทอร์เน็ต');
+    await withTimeout(performSync(), 45000, 'การซิงค์ข้อมูลขึ้นคลาวด์ใช้เวลานานเกินไป กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
     const durationMs = Date.now() - startTime;
     return {
       totalDecks: decks.length,
       totalCards: cards.length,
       durationMs
     };
-  } catch (err) {
+  } catch (err: any) {
+    console.error('syncDataToCloud detailed error:', err);
+    // Don't wrap if already a standard Error
+    if (err instanceof Error) {
+      throw err;
+    }
     handleFirestoreError(err, OperationType.WRITE, `users/${userId}`);
     throw err;
   }
@@ -305,13 +356,17 @@ export async function fetchUserDataFromCloud(
     try {
       decksSnapshot = await getDocs(collection(db, 'users', userId, 'decks'));
     } catch (err) {
+      console.error('Error listing decks:', err);
       handleFirestoreError(err, OperationType.LIST, `users/${userId}/decks`);
       return null;
     }
 
     const cloudDecks: LawDeck[] = [];
     decksSnapshot.forEach(docSnap => {
-      cloudDecks.push(docSnap.data() as LawDeck);
+      const data = docSnap.data();
+      if (data && data.id) {
+        cloudDecks.push(data as LawDeck);
+      }
     });
 
     onProgress?.('กำลังดาวน์โหลดข้อมูลตัวบทกฎหมาย...');
@@ -359,7 +414,7 @@ export async function fetchUserDataFromCloud(
   };
 
   try {
-    return await withTimeout(performFetch(), 30000, 'การดึงข้อมูลจากคลาวด์หมดเวลา กรุณาลองใหม่อีกครั้ง');
+    return await withTimeout(performFetch(), 45000, 'การดึงข้อมูลจากคลาวด์หมดเวลา กรุณาลองใหม่อีกครั้ง');
   } catch (error) {
     console.error('Error fetching data from Firestore:', error);
     throw error;
