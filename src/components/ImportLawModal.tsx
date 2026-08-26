@@ -56,6 +56,14 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
   const [viewParagraphsMode, setViewParagraphsMode] = useState<'structured' | 'raw'>('structured');
   const [excludeRepealedSections, setExcludeRepealedSections] = useState<boolean>(false);
   const [importOnlyPrimarySections, setImportOnlyPrimarySections] = useState<boolean>(false);
+
+  React.useEffect(() => {
+    if (defaultDeckId) {
+      setTargetDeckId(defaultDeckId);
+    } else if (decks.length > 0 && !decks.some(d => d.id === targetDeckId)) {
+      setTargetDeckId(decks[0].id);
+    }
+  }, [defaultDeckId, decks, isOpen]);
   
   // Staging Review State
   const [stagedSections, setStagedSections] = useState<ParsedLawSection[]>([]);

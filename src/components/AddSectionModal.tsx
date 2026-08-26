@@ -26,6 +26,14 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
   const [title, setTitle] = useState('');
   const [fullText, setFullText] = useState('');
 
+  React.useEffect(() => {
+    if (defaultDeckId) {
+      setDeckId(defaultDeckId);
+    } else if (decks.length > 0 && !decks.some(d => d.id === deckId)) {
+      setDeckId(decks[0].id);
+    }
+  }, [defaultDeckId, decks, isOpen]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!sectionNumber.trim() || !fullText.trim()) {

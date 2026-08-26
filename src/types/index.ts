@@ -35,6 +35,9 @@ export interface LawDeck {
   category: 'code' | 'proc' | 'constitution' | 'act' | 'custom';
   categoryLabel: string;
   iconName: string;
+  color?: string;
+  createdAt?: number;
+  isDefault?: boolean;
 }
 
 export type ParsedSectionStatus = 'valid' | 'uncertain' | 'duplicate' | 'error';

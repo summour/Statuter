@@ -1,17 +1,19 @@
 import React, { useState, useMemo } from 'react';
 import { LawDeck, LawCard } from '../types';
+import { renderDeckIcon } from './DeckIconHelper';
 import { 
-  ShieldAlert, 
-  Scale, 
-  Gavel, 
-  FileText, 
-  Landmark, 
-  Lock, 
-  BookOpen, 
-  Layers, 
   ArrowRight,
-  Bookmark
+  Bookmark,
+  Layers,
+  BookOpen,
+  Plus,
+  Edit3,
+  Trash2,
+  Download,
+  FolderPlus,
+  Settings
 } from 'lucide-react';
+import { exportDeckToJson } from '../utils/storage';
 
 interface DeckGridProps {
   decks: LawDeck[];
@@ -19,6 +21,11 @@ interface DeckGridProps {
   onSelectDeck: (deck: LawDeck | 'all') => void;
   searchQuery: string;
   onSelectCardDirectly?: (card: LawCard) => void;
+  onOpenCreateDeck: () => void;
+  onOpenEditDeck: (deck: LawDeck) => void;
+  onOpenDeleteDeck: (deck: LawDeck) => void;
+  onOpenAddSectionToDeck: (deckId: string) => void;
+  onOpenDeckManager: () => void;
 }
 
 export const DeckGrid: React.FC<DeckGridProps> = ({
@@ -27,28 +34,13 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
   onSelectDeck,
   searchQuery,
   onSelectCardDirectly,
+  onOpenCreateDeck,
+  onOpenEditDeck,
+  onOpenDeleteDeck,
+  onOpenAddSectionToDeck,
+  onOpenDeckManager,
 }) => {
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-
-  // Helper to render deck icon
-  const renderIcon = (name: string) => {
-    switch (name) {
-      case 'ShieldAlert':
-        return <ShieldAlert className="w-5 h-5" />;
-      case 'Scale':
-        return <Scale className="w-5 h-5" />;
-      case 'Gavel':
-        return <Gavel className="w-5 h-5" />;
-      case 'FileText':
-        return <FileText className="w-5 h-5" />;
-      case 'Landmark':
-        return <Landmark className="w-5 h-5" />;
-      case 'Lock':
-        return <Lock className="w-5 h-5" />;
-      default:
-        return <BookOpen className="w-5 h-5" />;
-    }
-  };
 
   // Card count by deck
   const deckCardCounts = useMemo(() => {
@@ -155,35 +147,55 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
         /* Regular Library Shelf View */
         <div>
           {/* Hero Banner / Introduction */}
-          <div className="bg-zinc-900 text-white rounded-2xl p-6 sm:p-8 mb-8 shadow-xs border border-zinc-800">
-            <div className="max-w-2xl">
+          <div className="bg-zinc-900 text-white rounded-3xl p-6 sm:p-8 mb-8 shadow-xs border border-zinc-800 relative overflow-hidden">
+            <div className="max-w-2xl relative z-10">
               <span className="inline-flex items-center gap-1.5 text-xs font-medium text-zinc-300 bg-zinc-800 px-2.5 py-1 rounded-full border border-zinc-700 mb-3">
-                <Bookmark className="w-3.5 h-3.5 text-zinc-300" /> ห้องสมุดกฎหมายไทยฉบับ Deck Reader
+                <Bookmark className="w-3.5 h-3.5 text-zinc-300" /> ระบบห้องสมุดกฎหมายฉบับ Deck Reader (Anki Style)
               </span>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white leading-snug">
-                เลือก Deck กฎหมายที่ต้องการอ่าน
+                จัดการและเลือก Deck กฎหมายที่ต้องการ
               </h2>
               <p className="text-sm text-zinc-300 mt-2 leading-relaxed">
-                อ่านตัวบทกฎหมายทีละมาตรา จัดหมวดหมู่ตามระบบ บรรพ, ลักษณะ, หมวด, ส่วน, เลขมาตรา, วรรค และ อนุ
+                สร้างสำรับใหม่ แก้ไขชื่อ หมวดหมู่ เพิ่ม/ลบมาตรา และนำเข้าตัวบทตามระบบโครงสร้าง บรรพ ลักษณะ หมวด มาตรา วรรค และ อนุ
               </p>
             </div>
 
-            {/* Quick Combined Deck trigger */}
-            <div className="mt-6 pt-5 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-4">
+            {/* Quick Combined Deck trigger & Management buttons */}
+            <div className="mt-6 pt-5 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-4 relative z-10">
               <div className="flex items-center gap-4 text-xs text-zinc-300">
                 <span>ทั้งหมด <strong>{cards.length}</strong> มาตรา</span>
                 <span>•</span>
-                <span><strong>{decks.length}</strong> หมวดกฎหมาย</span>
+                <span><strong>{decks.length}</strong> สำรับกฎหมาย</span>
               </div>
 
-              <button
-                id="open-all-deck-btn"
-                onClick={() => onSelectDeck('all')}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-zinc-900 font-semibold text-xs hover:bg-zinc-100 transition-colors shadow-sm cursor-pointer"
-              >
-                <Layers className="w-3.5 h-3.5" />
-                <span>อ่านทุกมาตราพร้อมกัน ({cards.length})</span>
-              </button>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  id="manage-decks-hero-btn"
+                  onClick={onOpenDeckManager}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition-colors border border-zinc-700 cursor-pointer"
+                >
+                  <Settings className="w-3.5 h-3.5 text-zinc-300" />
+                  <span>จัดการสำรับทั้งหมด</span>
+                </button>
+
+                <button
+                  id="create-new-deck-hero-btn"
+                  onClick={onOpenCreateDeck}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-semibold transition-colors border border-zinc-700 cursor-pointer"
+                >
+                  <FolderPlus className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>+ สร้าง Deck ใหม่</span>
+                </button>
+
+                <button
+                  id="open-all-deck-btn"
+                  onClick={() => onSelectDeck('all')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white text-zinc-900 font-semibold text-xs hover:bg-zinc-100 transition-colors shadow-sm cursor-pointer"
+                >
+                  <Layers className="w-3.5 h-3.5" />
+                  <span>อ่านรวมทุก Deck ({cards.length})</span>
+                </button>
+              </div>
             </div>
           </div>
 
@@ -208,7 +220,7 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
                   : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
               }`}
             >
-              ประมวลกฎหมาย (อาญา / แพ่ง)
+              ประมวลกฎหมาย ({decks.filter(d => d.category === 'code').length})
             </button>
 
             <button
@@ -219,7 +231,7 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
                   : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
               }`}
             >
-              วิธีพิจารณาความ (ป.วิ.อ. / ป.วิ.พ.)
+              วิธีพิจารณาความ ({decks.filter(d => d.category === 'proc').length})
             </button>
 
             <button
@@ -230,7 +242,7 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
                   : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
               }`}
             >
-              รัฐธรรมนูญ
+              รัฐธรรมนูญ ({decks.filter(d => d.category === 'constitution').length})
             </button>
 
             <button
@@ -241,39 +253,131 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
                   : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
               }`}
             >
-              พระราชบัญญัติ (PDPA)
+              พระราชบัญญัติ ({decks.filter(d => d.category === 'act').length})
             </button>
+
+            {decks.some(d => d.category === 'custom') && (
+              <button
+                onClick={() => setSelectedCategory('custom')}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
+                  selectedCategory === 'custom'
+                    ? 'bg-zinc-900 text-white shadow-sm'
+                    : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
+                }`}
+              >
+                สำรับส่วนตัว ({decks.filter(d => d.category === 'custom').length})
+              </button>
+            )}
           </div>
 
           {/* Decks Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+            
+            {/* Create New Deck Prominent Action Card */}
+            <div
+              onClick={onOpenCreateDeck}
+              className="bg-white hover:bg-zinc-50 border-2 border-dashed border-zinc-300 hover:border-zinc-900 rounded-3xl p-6 transition-all cursor-pointer group flex flex-col justify-center items-center text-center min-h-[220px]"
+            >
+              <div className="w-12 h-12 rounded-2xl bg-zinc-100 group-hover:bg-zinc-900 group-hover:text-white text-zinc-700 flex items-center justify-center mb-3 transition-colors shadow-2xs">
+                <FolderPlus className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-bold text-zinc-900 group-hover:text-black">
+                + สร้าง Deck ใหม่
+              </h3>
+              <p className="text-xs text-zinc-500 mt-1 max-w-[200px]">
+                เพิ่มสำรับกฎหมายใหม่ เช่น พ.ร.บ., กฎหมายพิเศษ, หรือสรุปสอบ
+              </p>
+            </div>
+
+            {/* Render Each Deck Card */}
             {filteredDecks.map((deck) => {
               const cardCount = deckCardCounts[deck.id] || 0;
               return (
                 <div
                   key={deck.id}
                   id={`deck-card-${deck.id}`}
-                  onClick={() => onSelectDeck(deck)}
-                  className="bg-white rounded-2xl p-5 sm:p-6 border border-zinc-200 hover:border-zinc-400 hover:shadow-md transition-all cursor-pointer group flex flex-col justify-between relative overflow-hidden"
+                  className="bg-white rounded-3xl p-5 sm:p-6 border border-zinc-200 hover:border-zinc-400 hover:shadow-md transition-all group flex flex-col justify-between relative overflow-hidden"
                 >
                   <div>
-                    {/* Top row: Icon & Short Name */}
-                    <div className="flex items-center justify-between gap-3 mb-3">
-                      <div className="w-10 h-10 rounded-xl bg-zinc-100 text-zinc-900 flex items-center justify-center group-hover:scale-105 group-hover:bg-zinc-900 group-hover:text-white transition-all">
-                        {renderIcon(deck.iconName)}
+                    {/* Top row: Icon, Short Name, & Quick Deck Actions */}
+                    <div className="flex items-center justify-between gap-2 mb-3">
+                      <div 
+                        onClick={() => onSelectDeck(deck)}
+                        className="w-10 h-10 rounded-2xl bg-zinc-100 text-zinc-900 flex items-center justify-center group-hover:scale-105 group-hover:bg-zinc-900 group-hover:text-white transition-all cursor-pointer shadow-2xs"
+                      >
+                        {renderDeckIcon(deck.iconName)}
                       </div>
-                      <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-800 border border-zinc-200">
-                        {deck.shortName}
-                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-lg bg-zinc-100 text-zinc-800 border border-zinc-200">
+                          {deck.shortName}
+                        </span>
+
+                        {/* Deck Card Action Menu */}
+                        <div className="flex items-center gap-0.5 bg-zinc-50 rounded-xl p-0.5 border border-zinc-200 opacity-80 group-hover:opacity-100 transition-opacity">
+                          {/* Quick Add Section to this Deck */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenAddSectionToDeck(deck.id);
+                            }}
+                            className="p-1.5 text-zinc-600 hover:text-zinc-900 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                            title={`เพิ่มมาตราใหม่ลงใน "${deck.name}"`}
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Quick Edit Deck */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenEditDeck(deck);
+                            }}
+                            className="p-1.5 text-zinc-600 hover:text-zinc-900 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                            title="แก้ไขชื่อและรายละเอียด Deck"
+                          >
+                            <Edit3 className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Export Deck */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              exportDeckToJson(deck, cards);
+                            }}
+                            className="p-1.5 text-zinc-600 hover:text-zinc-900 hover:bg-white rounded-lg transition-colors cursor-pointer"
+                            title="ส่งออก Deck เป็น JSON"
+                          >
+                            <Download className="w-3.5 h-3.5" />
+                          </button>
+
+                          {/* Delete Deck */}
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onOpenDeleteDeck(deck);
+                            }}
+                            className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="ลบสำรับนี้"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Deck Title */}
-                    <h3 className="text-base font-bold text-zinc-900 group-hover:text-black transition-colors leading-tight">
-                      {deck.name}
-                    </h3>
-                    <p className="text-xs text-zinc-500 mt-2 leading-relaxed line-clamp-2">
-                      {deck.description}
-                    </p>
+                    <div 
+                      onClick={() => onSelectDeck(deck)}
+                      className="cursor-pointer"
+                    >
+                      <h3 className="text-base font-bold text-zinc-900 group-hover:text-black transition-colors leading-tight">
+                        {deck.name}
+                      </h3>
+                      <p className="text-xs text-zinc-500 mt-2 leading-relaxed line-clamp-2">
+                        {deck.description}
+                      </p>
+                    </div>
                   </div>
 
                   {/* Bottom row: Card count and CTA */}
@@ -282,6 +386,7 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
                       {cardCount} มาตราในการ์ด
                     </span>
                     <button
+                      onClick={() => onSelectDeck(deck)}
                       className="flex items-center gap-1 text-xs font-bold text-zinc-900 group-hover:text-black group-hover:translate-x-1 transition-all cursor-pointer"
                     >
                       <span>เปิดอ่าน Deck</span>

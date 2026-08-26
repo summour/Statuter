@@ -9,14 +9,22 @@ import {
   ChevronDown,
   Copy,
   Check,
-  Search
+  Plus,
+  Edit3,
+  Trash2,
+  Download,
+  Settings
 } from 'lucide-react';
+import { exportDeckToJson } from '../utils/storage';
 
 interface DeckReaderProps {
   deck: LawDeck | 'all';
   cards: LawCard[];
   onBackToLibrary: () => void;
   initialCardId?: string;
+  onOpenAddSectionToDeck?: (deckId?: string) => void;
+  onOpenEditDeck?: (deck: LawDeck) => void;
+  onDeleteCard?: (cardId: string) => void;
 }
 
 export const DeckReader: React.FC<DeckReaderProps> = ({
@@ -24,6 +32,9 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
   cards,
   onBackToLibrary,
   initialCardId,
+  onOpenAddSectionToDeck,
+  onOpenEditDeck,
+  onDeleteCard,
 }) => {
   // Filter cards belonging to this deck
   const rawDeckCards = useMemo(() => {
@@ -111,28 +122,28 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [currentIndex, deckCards.length, viewMode]);
 
-  const deckTitle = deck === 'all' ? 'รวมทุกกฎหมาย' : deck.name;
+  const deckTitle = deck === 'all' ? 'รวมทุกสำรับกฎหมาย' : deck.name;
   const deckShort = deck === 'all' ? 'ทุกฉบับ' : deck.shortName;
 
   if (deckCards.length === 0) {
     return (
       <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-        <div className="bg-white rounded-2xl p-8 border border-zinc-200 shadow-sm max-w-md mx-auto">
+        <div className="bg-white rounded-3xl p-8 border border-zinc-200 shadow-sm max-w-md mx-auto">
           <BookOpen className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
-          <h2 className="text-base font-bold text-zinc-900">ไม่พบมาตราในหมวดนี้</h2>
-          <p className="text-xs text-zinc-500 mt-1">ลองเลือกหมวดอื่น หรือกดกลับสู่ห้องสมุด</p>
+          <h2 className="text-base font-bold text-zinc-900">สำรับนี้ยังไม่มีมาตรากฎหมาย</h2>
+          <p className="text-xs text-zinc-500 mt-1">คุณสามารถเพิ่มมาตราใหม่ หรือนำเข้าตัวบทลงในสำรับนี้ได้ทันที</p>
           <div className="flex justify-center gap-2 mt-5">
-            {chapterFilter !== 'all' && (
+            {deck !== 'all' && onOpenAddSectionToDeck && (
               <button
-                onClick={() => setChapterFilter('all')}
-                className="px-3.5 py-1.5 bg-zinc-100 text-zinc-700 text-xs font-semibold rounded-xl hover:bg-zinc-200 transition-colors"
+                onClick={() => onOpenAddSectionToDeck(deck.id)}
+                className="px-4 py-2 bg-zinc-900 text-white text-xs font-bold rounded-xl hover:bg-zinc-800 transition-colors cursor-pointer"
               >
-                แสดงทุกหมวด
+                + เพิ่มมาตราแรก
               </button>
             )}
             <button
               onClick={onBackToLibrary}
-              className="px-3.5 py-1.5 bg-zinc-900 text-white text-xs font-semibold rounded-xl hover:bg-zinc-800 transition-colors"
+              className="px-4 py-2 bg-zinc-100 text-zinc-700 text-xs font-semibold rounded-xl hover:bg-zinc-200 transition-colors cursor-pointer"
             >
               กลับสู่ห้องสมุด
             </button>
@@ -145,7 +156,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
       {/* Top Deck Navigation Bar */}
-      <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-sm mb-6 flex flex-wrap items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-2xs mb-6 flex flex-wrap items-center justify-between gap-3">
         {/* Left: Back button & Deck Info */}
         <div className="flex items-center gap-3">
           <button
@@ -162,7 +173,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-zinc-900 text-white">
                 {deckShort}
               </span>
-              <h2 className="text-sm font-bold text-zinc-900 truncate max-w-[200px] sm:max-w-xs">
+              <h2 className="text-sm font-bold text-zinc-900 truncate max-w-[180px] sm:max-w-xs">
                 {deckTitle}
               </h2>
             </div>
@@ -172,8 +183,42 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
           </div>
         </div>
 
-        {/* Right: Controls (Jump dropdown, Filter by Chapter, View mode, Font size) */}
+        {/* Right: Controls (Jump dropdown, Filter by Chapter, Actions, View mode, Font size) */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Add section directly into this deck */}
+          {deck !== 'all' && onOpenAddSectionToDeck && (
+            <button
+              onClick={() => onOpenAddSectionToDeck(deck.id)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+              title="เพิ่มมาตราใหม่ในสำรับนี้"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">เพิ่มมาตรา</span>
+            </button>
+          )}
+
+          {/* Edit deck button */}
+          {deck !== 'all' && onOpenEditDeck && (
+            <button
+              onClick={() => onOpenEditDeck(deck)}
+              className="p-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl transition-colors cursor-pointer"
+              title="แก้ไขข้อมูลสำรับนี้"
+            >
+              <Settings className="w-4 h-4" />
+            </button>
+          )}
+
+          {/* Export this deck */}
+          {deck !== 'all' && (
+            <button
+              onClick={() => exportDeckToJson(deck, cards)}
+              className="p-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl transition-colors cursor-pointer"
+              title="ส่งออก Deck เป็น JSON"
+            >
+              <Download className="w-4 h-4" />
+            </button>
+          )}
+
           {/* Chapter Filter if multiple chapters */}
           {availableChapters.length > 1 && (
             <div className="relative">
@@ -201,7 +246,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               id="jump-section-select"
               value={currentIndex}
               onChange={(e) => setCurrentIndex(Number(e.target.value))}
-              className="appearance-none bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-xs font-medium text-zinc-800 py-1.5 pl-3 pr-7 rounded-xl cursor-pointer focus:outline-none"
+              className="appearance-none bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-xs font-medium text-zinc-800 py-1.5 pl-3 pr-7 rounded-xl cursor-pointer focus:outline-none max-w-[130px]"
             >
               {deckCards.map((card, idx) => (
                 <option key={card.id} value={idx}>
@@ -217,7 +262,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             <button
               onClick={() => setViewMode('card')}
               className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                viewMode === 'card' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-900'
+                viewMode === 'card' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'
               }`}
               title="โหมดอ่านทีละมาตรา"
             >
@@ -226,7 +271,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             <button
               onClick={() => setViewMode('list')}
               className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                viewMode === 'list' ? 'bg-white text-zinc-900 shadow-sm' : 'text-zinc-500 hover:text-zinc-900'
+                viewMode === 'list' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'
               }`}
               title="โหมดอ่านแบบสารบัญรวม"
             >
@@ -317,13 +362,29 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     )}
                   </div>
 
-                  <button
-                    onClick={() => handleCopyText(`${card.deckName} ${card.sectionNumber} ${card.title ? `(${card.title})` : ''}\n\n${card.fullText}`)}
-                    className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
-                    title="คัดลอกตัวบทกฎหมาย"
-                  >
-                    <Copy className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleCopyText(`${card.deckName} ${card.sectionNumber} ${card.title ? `(${card.title})` : ''}\n\n${card.fullText}`)}
+                      className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+                      title="คัดลอกตัวบทกฎหมาย"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </button>
+
+                    {onDeleteCard && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`ต้องการลบมาตรา ${card.sectionNumber} ออกจากสำรับใช่หรือไม่?`)) {
+                            onDeleteCard(card.id);
+                          }
+                        }}
+                        className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="ลบมาตรานี้"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Statutory Text with Paragraphs */}
@@ -378,25 +439,42 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   </span>
                 </div>
 
-                {/* Copy Statute Button */}
-                <button
-                  id="copy-statute-btn"
-                  onClick={() => handleCopyText(`${currentCard.deckName} ${currentCard.sectionNumber} ${currentCard.title ? `(${currentCard.title})` : ''}\n\n${currentCard.fullText}`)}
-                  className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
-                  title="คัดลอกตัวบทกฎหมาย"
-                >
-                  {copied ? (
-                    <>
-                      <Check className="w-3.5 h-3.5 text-emerald-600" />
-                      <span className="text-emerald-600 font-semibold">คัดลอกแล้ว</span>
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="w-3.5 h-3.5" />
-                      <span>คัดลอกตัวบท</span>
-                    </>
+                <div className="flex items-center gap-1.5">
+                  {/* Delete Card Button */}
+                  {onDeleteCard && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm(`ต้องการลบมาตรา ${currentCard.sectionNumber} ออกจากสำรับใช่หรือไม่?`)) {
+                          onDeleteCard(currentCard.id);
+                        }
+                      }}
+                      className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                      title="ลบมาตรานี้ออกจากสำรับ"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   )}
-                </button>
+
+                  {/* Copy Statute Button */}
+                  <button
+                    id="copy-statute-btn"
+                    onClick={() => handleCopyText(`${currentCard.deckName} ${currentCard.sectionNumber} ${currentCard.title ? `(${currentCard.title})` : ''}\n\n${currentCard.fullText}`)}
+                    className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
+                    title="คัดลอกตัวบทกฎหมาย"
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="text-emerald-600 font-semibold">คัดลอกแล้ว</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>คัดลอกตัวบท</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {/* Hierarchy: บรรพ › ลักษณะ › หมวด › ส่วน */}

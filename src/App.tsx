@@ -4,30 +4,146 @@ import { DeckGrid } from './components/DeckGrid';
 import { DeckReader } from './components/DeckReader';
 import { AddSectionModal } from './components/AddSectionModal';
 import { ImportLawModal } from './components/ImportLawModal';
+import { DeckEditModal } from './components/DeckEditModal';
+import { DeleteDeckModal } from './components/DeleteDeckModal';
+import { DeckManagerModal } from './components/DeckManagerModal';
 import { LawDeck, LawCard } from './types';
 import { LAW_DECKS, INITIAL_LAW_CARDS } from './data/defaultDecks';
-import { loadStoredCards, saveStoredCards } from './utils/storage';
+import { 
+  loadStoredCards, 
+  saveStoredCards, 
+  loadStoredDecks, 
+  saveStoredDecks 
+} from './utils/storage';
 import { CheckCircle2 } from 'lucide-react';
 
 export function App() {
   const [cards, setCards] = useState<LawCard[]>(() => loadStoredCards());
-  const [decks] = useState<LawDeck[]>(LAW_DECKS);
+  const [decks, setDecks] = useState<LawDeck[]>(() => loadStoredDecks());
   const [selectedDeck, setSelectedDeck] = useState<LawDeck | 'all' | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [activeCardId, setActiveCardId] = useState<string | undefined>(undefined);
+  const [importNotification, setImportNotification] = useState<{ message: string; deckId?: string } | null>(null);
+
+  // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
-  const [activeCardId, setActiveCardId] = useState<string | undefined>(undefined);
-  const [importNotification, setImportNotification] = useState<{ message: string; deckId: string } | null>(null);
+  const [isDeckManagerOpen, setIsDeckManagerOpen] = useState<boolean>(false);
+  const [isDeckEditOpen, setIsDeckEditOpen] = useState<boolean>(false);
+  const [editingDeck, setEditingDeck] = useState<LawDeck | null>(null);
+  const [isDeleteDeckOpen, setIsDeleteDeckOpen] = useState<boolean>(false);
+  const [deckToDelete, setDeckToDelete] = useState<LawDeck | null>(null);
+  const [preselectedDeckId, setPreselectedDeckId] = useState<string | undefined>(undefined);
 
   // Sync cards changes to localStorage
   useEffect(() => {
     saveStoredCards(cards);
   }, [cards]);
 
+  // Sync decks changes to localStorage
+  useEffect(() => {
+    saveStoredDecks(decks);
+  }, [decks]);
+
   // Save new single card
   const handleSaveCard = useCallback((newCard: LawCard) => {
     setCards(prev => [newCard, ...prev]);
   }, []);
+
+  // Delete single card
+  const handleDeleteCard = useCallback((cardId: string) => {
+    setCards(prev => prev.filter(c => c.id !== cardId));
+  }, []);
+
+  // Save new or edited Deck
+  const handleSaveDeck = useCallback((deckToSave: LawDeck) => {
+    setDecks(prevDecks => {
+      const existsIndex = prevDecks.findIndex(d => d.id === deckToSave.id);
+      if (existsIndex >= 0) {
+        // Update existing deck
+        const updated = [...prevDecks];
+        updated[existsIndex] = deckToSave;
+        return updated;
+      } else {
+        // Add new deck
+        return [...prevDecks, deckToSave];
+      }
+    });
+
+    // Also update any cards associated with this deck if name or shortName changed
+    setCards(prevCards => {
+      return prevCards.map(c => {
+        if (c.deckId === deckToSave.id) {
+          return {
+            ...c,
+            deckName: deckToSave.name,
+            deckShortName: deckToSave.shortName,
+          };
+        }
+        return c;
+      });
+    });
+
+    // If current selectedDeck is this deck, update it
+    setSelectedDeck(prev => {
+      if (prev && prev !== 'all' && prev.id === deckToSave.id) {
+        return deckToSave;
+      }
+      return prev;
+    });
+
+    setImportNotification({
+      message: `บันทึกสำรับ "${deckToSave.name}" เรียบร้อยแล้ว`,
+      deckId: deckToSave.id,
+    });
+    setTimeout(() => setImportNotification(null), 4000);
+  }, []);
+
+  // Delete Deck with card management action
+  const handleDeleteDeckConfirm = useCallback((
+    deckId: string, 
+    action: 'delete-cards' | 'move-cards', 
+    targetDeckId?: string
+  ) => {
+    const deletedDeck = decks.find(d => d.id === deckId);
+    
+    // Remove deck from decks state
+    setDecks(prev => prev.filter(d => d.id !== deckId));
+
+    // Handle cards inside this deck
+    setCards(prevCards => {
+      if (action === 'delete-cards') {
+        return prevCards.filter(c => c.deckId !== deckId);
+      } else if (action === 'move-cards' && targetDeckId) {
+        const targetDeck = decks.find(d => d.id === targetDeckId);
+        return prevCards.map(c => {
+          if (c.deckId === deckId) {
+            return {
+              ...c,
+              deckId: targetDeckId,
+              deckName: targetDeck?.name || c.deckName,
+              deckShortName: targetDeck?.shortName || c.deckShortName,
+            };
+          }
+          return c;
+        });
+      }
+      return prevCards;
+    });
+
+    // If currently viewing the deleted deck, return to library
+    setSelectedDeck(prev => {
+      if (prev && prev !== 'all' && prev.id === deckId) {
+        return null;
+      }
+      return prev;
+    });
+
+    setImportNotification({
+      message: `ลบสำรับ "${deletedDeck?.name || deckId}" สำเร็จ`,
+    });
+    setTimeout(() => setImportNotification(null), 4000);
+  }, [decks]);
 
   // Handle Batch Import Success
   const handleBatchImport = useCallback((
@@ -39,7 +155,6 @@ export function App() {
       let updatedList = [...prevCards];
 
       if (duplicateAction === 'replace') {
-        // Remove existing cards that match sectionNumber in the same deck
         const newSecNumbers = new Set(newCards.map(c => c.sectionNumber.trim()));
         updatedList = updatedList.filter(c => !(c.deckId === targetDeck.id && newSecNumbers.has(c.sectionNumber.trim())));
         updatedList = [...newCards, ...updatedList];
@@ -50,11 +165,9 @@ export function App() {
         const filteredNew = newCards.filter(c => !existingSecNumbers.has(c.sectionNumber.trim()));
         updatedList = [...filteredNew, ...updatedList];
       } else {
-        // keep-both
         updatedList = [...newCards, ...updatedList];
       }
 
-      // Sort by sectionRawNum
       return updatedList.sort((a, b) => a.sectionRawNum - b.sectionRawNum);
     });
 
@@ -63,16 +176,42 @@ export function App() {
       deckId: targetDeck.id,
     });
 
-    // Auto-dismiss notification
-    setTimeout(() => {
-      setImportNotification(null);
-    }, 6000);
+    setTimeout(() => setImportNotification(null), 6000);
   }, []);
 
-  // Reset to default cards
+  // Handle Full JSON Backup Import or Single Deck Import
+  const handleImportBackup = useCallback((importedDecks: LawDeck[], importedCards: LawCard[]) => {
+    // Merge Decks
+    setDecks(prevDecks => {
+      const deckMap = new Map<string, LawDeck>();
+      prevDecks.forEach(d => deckMap.set(d.id, d));
+      importedDecks.forEach(d => deckMap.set(d.id, d));
+      return Array.from(deckMap.values());
+    });
+
+    // Merge Cards
+    setCards(prevCards => {
+      const cardMap = new Map<string, LawCard>();
+      prevCards.forEach(c => cardMap.set(c.id, c));
+      importedCards.forEach(c => cardMap.set(c.id, c));
+      return Array.from(cardMap.values()).sort((a, b) => a.sectionRawNum - b.sectionRawNum);
+    });
+
+    setImportNotification({
+      message: `นำเข้าข้อมูลสำรอง ${importedDecks.length} สำรับ และ ${importedCards.length} มาตรา เรียบร้อยแล้ว`,
+    });
+    setTimeout(() => setImportNotification(null), 6000);
+  }, []);
+
+  // Reset to default cards & decks
   const handleResetData = useCallback(() => {
+    const defaultDecks = LAW_DECKS.map(d => ({ ...d, isDefault: true }));
+    setDecks(defaultDecks);
+    saveStoredDecks(defaultDecks);
     setCards(INITIAL_LAW_CARDS);
     saveStoredCards(INITIAL_LAW_CARDS);
+    setSelectedDeck(null);
+    setActiveCardId(undefined);
   }, []);
 
   // Select card directly from search
@@ -81,6 +220,30 @@ export function App() {
     setSelectedDeck(targetDeck);
     setActiveCardId(card.id);
     setSearchQuery('');
+  };
+
+  // Open Add modal for specific deck
+  const handleOpenAddSectionToDeck = (deckId?: string) => {
+    setPreselectedDeckId(deckId);
+    setIsAddModalOpen(true);
+  };
+
+  // Open Edit Deck Modal
+  const handleOpenEditDeck = (deck: LawDeck) => {
+    setEditingDeck(deck);
+    setIsDeckEditOpen(true);
+  };
+
+  // Open Delete Deck Modal
+  const handleOpenDeleteDeck = (deck: LawDeck) => {
+    setDeckToDelete(deck);
+    setIsDeleteDeckOpen(true);
+  };
+
+  // Open Create New Deck Modal
+  const handleOpenCreateDeck = () => {
+    setEditingDeck(null);
+    setIsDeckEditOpen(true);
   };
 
   return (
@@ -95,30 +258,36 @@ export function App() {
           setActiveCardId(undefined);
           setSearchQuery('');
         }}
-        onOpenAddModal={() => setIsAddModalOpen(true)}
+        onOpenAddModal={() => {
+          setPreselectedDeckId(selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined);
+          setIsAddModalOpen(true);
+        }}
         onOpenImportModal={() => setIsImportModalOpen(true)}
-        onResetData={handleResetData}
+        onOpenCreateDeckModal={handleOpenCreateDeck}
+        onOpenDeckManagerModal={() => setIsDeckManagerOpen(true)}
         totalCardsCount={cards.length}
         totalDecksCount={decks.length}
       />
 
-      {/* Floating Notification for Import */}
+      {/* Floating Notification */}
       {importNotification && (
         <div className="fixed bottom-6 right-6 z-50 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-zinc-700 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
           <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
           <div className="text-xs">
             <p className="font-semibold">{importNotification.message}</p>
           </div>
-          <button
-            onClick={() => {
-              const target = decks.find(d => d.id === importNotification.deckId);
-              if (target) setSelectedDeck(target);
-              setImportNotification(null);
-            }}
-            className="ml-2 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-300 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-          >
-            เปิดอ่านทันที
-          </button>
+          {importNotification.deckId && (
+            <button
+              onClick={() => {
+                const target = decks.find(d => d.id === importNotification.deckId);
+                if (target) setSelectedDeck(target);
+                setImportNotification(null);
+              }}
+              className="ml-2 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-300 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
+            >
+              เปิดอ่านทันที
+            </button>
+          )}
         </div>
       )}
 
@@ -136,6 +305,11 @@ export function App() {
             }}
             searchQuery={searchQuery}
             onSelectCardDirectly={handleSelectCardDirectly}
+            onOpenCreateDeck={handleOpenCreateDeck}
+            onOpenEditDeck={handleOpenEditDeck}
+            onOpenDeleteDeck={handleOpenDeleteDeck}
+            onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
+            onOpenDeckManager={() => setIsDeckManagerOpen(true)}
           />
         ) : (
           /* Deck Section Reader */
@@ -147,6 +321,9 @@ export function App() {
               setActiveCardId(undefined);
             }}
             initialCardId={activeCardId}
+            onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
+            onOpenEditDeck={handleOpenEditDeck}
+            onDeleteCard={handleDeleteCard}
           />
         )}
       </main>
@@ -154,10 +331,13 @@ export function App() {
       {/* Add New Section Modal */}
       <AddSectionModal
         isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
+        onClose={() => {
+          setIsAddModalOpen(false);
+          setPreselectedDeckId(undefined);
+        }}
         onSaveCard={handleSaveCard}
         decks={decks}
-        defaultDeckId={selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined}
+        defaultDeckId={preselectedDeckId || (selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined)}
       />
 
       {/* Bulk Law Import Modal */}
@@ -169,9 +349,55 @@ export function App() {
         onImportSuccess={handleBatchImport}
         defaultDeckId={selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined}
       />
+
+      {/* Deck Edit / Create Modal */}
+      <DeckEditModal
+        isOpen={isDeckEditOpen}
+        onClose={() => {
+          setIsDeckEditOpen(false);
+          setEditingDeck(null);
+        }}
+        onSaveDeck={handleSaveDeck}
+        editingDeck={editingDeck}
+      />
+
+      {/* Delete Deck Confirmation Modal */}
+      <DeleteDeckModal
+        isOpen={isDeleteDeckOpen}
+        onClose={() => {
+          setIsDeleteDeckOpen(false);
+          setDeckToDelete(null);
+        }}
+        deck={deckToDelete}
+        cards={cards}
+        allDecks={decks}
+        onConfirmDelete={handleDeleteDeckConfirm}
+      />
+
+      {/* Comprehensive Deck Manager Modal */}
+      <DeckManagerModal
+        isOpen={isDeckManagerOpen}
+        onClose={() => setIsDeckManagerOpen(false)}
+        decks={decks}
+        cards={cards}
+        onOpenCreateDeck={handleOpenCreateDeck}
+        onOpenEditDeck={(deck) => {
+          setIsDeckManagerOpen(false);
+          handleOpenEditDeck(deck);
+        }}
+        onOpenDeleteDeck={(deck) => {
+          setIsDeckManagerOpen(false);
+          handleOpenDeleteDeck(deck);
+        }}
+        onSelectDeckToRead={(deck) => {
+          setSelectedDeck(deck);
+          setActiveCardId(undefined);
+        }}
+        onImportBackup={handleImportBackup}
+        onResetData={handleResetData}
+      />
     </div>
   );
 }
 
 export default App;
-
