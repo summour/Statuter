@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Header } from './components/Header';
 import { DeckGrid } from './components/DeckGrid';
+import { DeckOverview } from './components/DeckOverview';
 import { DeckReader } from './components/DeckReader';
 import { AddSectionModal } from './components/AddSectionModal';
 import { CardEditModal } from './components/CardEditModal';
@@ -30,6 +31,9 @@ export function App() {
   const [decks, setDecks] = useState<LawDeck[]>(() => loadStoredDecks());
   const [numeralSystem, setNumeralSystem] = useState<NumeralSystem>(() => loadStoredNumeralSystem());
   const [selectedDeck, setSelectedDeck] = useState<LawDeck | 'all' | null>(null);
+  const [deckViewMode, setDeckViewMode] = useState<'overview' | 'reader'>('overview');
+  const [activeStructureFilter, setActiveStructureFilter] = useState<string>('all');
+  const [readerInitialViewMode, setReaderInitialViewMode] = useState<'card' | 'list'>('card');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCardId, setActiveCardId] = useState<string | undefined>(undefined);
   const [importNotification, setImportNotification] = useState<{ message: string; deckId?: string } | null>(null);
@@ -278,6 +282,9 @@ export function App() {
     const targetDeck = decks.find(d => d.id === card.deckId) || 'all';
     setSelectedDeck(targetDeck);
     setActiveCardId(card.id);
+    setActiveStructureFilter('all');
+    setReaderInitialViewMode('card');
+    setDeckViewMode('reader');
     setSearchQuery('');
   };
 
@@ -314,18 +321,18 @@ export function App() {
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-[#111111] flex flex-col font-sans selection:bg-black selection:text-white">
       {/* Minimal Header on Home */}
-      {activeTab === 'home' && (
+      {activeTab === 'home' && selectedDeck === null && (
         <Header
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
-          selectedDeck={selectedDeck === 'all' ? null : selectedDeck}
+          selectedDeck={null}
           onSelectDeck={() => {
             setSelectedDeck(null);
             setActiveCardId(undefined);
             setSearchQuery('');
           }}
           onOpenAddModal={() => {
-            setPreselectedDeckId(selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined);
+            setPreselectedDeckId(undefined);
             setIsAddModalOpen(true);
           }}
           onOpenImportModal={() => setIsImportModalOpen(true)}
@@ -348,13 +355,14 @@ export function App() {
                 const target = decks.find(d => d.id === importNotification.deckId);
                 if (target) {
                   setSelectedDeck(target);
+                  setDeckViewMode('overview');
                   setActiveTab('home');
                 }
                 setImportNotification(null);
               }}
               className="ml-2 text-xs font-bold bg-zinc-800 hover:bg-zinc-700 text-emerald-300 px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
             >
-              เปิดอ่านทันที
+              เปิดดูสารบัญ
             </button>
           )}
         </div>
@@ -370,7 +378,9 @@ export function App() {
               cards={cards}
               onSelectDeck={(deck) => {
                 setSelectedDeck(deck);
+                setDeckViewMode('overview');
                 setActiveCardId(undefined);
+                setActiveStructureFilter('all');
                 setSearchQuery('');
               }}
               searchQuery={searchQuery}
@@ -382,16 +392,41 @@ export function App() {
               onOpenDeckManager={() => setActiveTab('settings')}
               numeralSystem={numeralSystem}
             />
-          ) : (
-            /* Deck Section Reader */
-            <DeckReader
+          ) : deckViewMode === 'overview' ? (
+            /* Screen 1: Deck Table of Contents & Structure Overview */
+            <DeckOverview
               deck={selectedDeck}
               cards={cards}
               onBackToLibrary={() => {
                 setSelectedDeck(null);
                 setActiveCardId(undefined);
               }}
+              onStartReading={(structureFilter = 'all', startCardId, initialMode = 'card') => {
+                setActiveStructureFilter(structureFilter);
+                setActiveCardId(startCardId);
+                setReaderInitialViewMode(initialMode);
+                setDeckViewMode('reader');
+              }}
+              onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
+              onOpenImportModal={(deckId) => {
+                if (deckId) setPreselectedDeckId(deckId);
+                setIsImportModalOpen(true);
+              }}
+              onOpenEditDeck={handleOpenEditDeck}
+              numeralSystem={numeralSystem}
+            />
+          ) : (
+            /* Screen 2: Clean, Unobstructed Statute Card Reader */
+            <DeckReader
+              deck={selectedDeck}
+              cards={cards}
+              onBackToLibrary={() => {
+                setDeckViewMode('overview');
+                setActiveCardId(undefined);
+              }}
               initialCardId={activeCardId}
+              initialStructureFilter={activeStructureFilter}
+              initialViewMode={readerInitialViewMode}
               onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
               onOpenImportModal={(deckId) => {
                 if (deckId) setPreselectedDeckId(deckId);
@@ -419,6 +454,7 @@ export function App() {
             onResetData={handleResetData}
             onSelectDeckToRead={(deck) => {
               setSelectedDeck(deck);
+              setDeckViewMode('overview');
               setActiveCardId(undefined);
               setActiveTab('home');
             }}
