@@ -3,6 +3,7 @@ import { Header } from './components/Header';
 import { DeckGrid } from './components/DeckGrid';
 import { DeckReader } from './components/DeckReader';
 import { AddSectionModal } from './components/AddSectionModal';
+import { CardEditModal } from './components/CardEditModal';
 import { ImportLawModal } from './components/ImportLawModal';
 import { DeckEditModal } from './components/DeckEditModal';
 import { DeleteDeckModal } from './components/DeleteDeckModal';
@@ -32,6 +33,8 @@ export function App() {
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
+  const [isCardEditOpen, setIsCardEditOpen] = useState<boolean>(false);
+  const [editingCard, setEditingCard] = useState<LawCard | null>(null);
   const [isImportModalOpen, setIsImportModalOpen] = useState<boolean>(false);
   const [isDeckEditOpen, setIsDeckEditOpen] = useState<boolean>(false);
   const [editingDeck, setEditingDeck] = useState<LawDeck | null>(null);
@@ -57,6 +60,17 @@ export function App() {
   // Save new single card
   const handleSaveCard = useCallback((newCard: LawCard) => {
     setCards(prev => [newCard, ...prev]);
+  }, []);
+
+  // Update existing single card
+  const handleUpdateCard = useCallback((updatedCard: LawCard) => {
+    setCards(prevCards => {
+      return prevCards.map(c => c.id === updatedCard.id ? updatedCard : c);
+    });
+    setImportNotification({
+      message: `บันทึกการแก้ไข ${updatedCard.sectionNumber} สำเร็จ`,
+    });
+    setTimeout(() => setImportNotification(null), 3000);
   }, []);
 
   // Delete single card
@@ -262,6 +276,12 @@ export function App() {
     setIsDeckEditOpen(true);
   };
 
+  // Open Edit Card Modal
+  const handleOpenEditCard = useCallback((card: LawCard) => {
+    setEditingCard(card);
+    setIsCardEditOpen(true);
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-[#111111] flex flex-col font-sans selection:bg-black selection:text-white">
       {/* Minimal Header on Home */}
@@ -346,6 +366,7 @@ export function App() {
               onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
               onOpenEditDeck={handleOpenEditDeck}
               onDeleteCard={handleDeleteCard}
+              onOpenEditCard={handleOpenEditCard}
               numeralSystem={numeralSystem}
               onNumeralSystemChange={setNumeralSystem}
             />
@@ -395,6 +416,18 @@ export function App() {
         onSaveCard={handleSaveCard}
         decks={decks}
         defaultDeckId={preselectedDeckId || (selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined)}
+      />
+
+      {/* Edit Section Card Modal */}
+      <CardEditModal
+        isOpen={isCardEditOpen}
+        onClose={() => {
+          setIsCardEditOpen(false);
+          setEditingCard(null);
+        }}
+        onSaveCard={handleUpdateCard}
+        card={editingCard}
+        decks={decks}
       />
 
       {/* Bulk Law Import Modal */}

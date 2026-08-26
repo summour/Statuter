@@ -26,6 +26,7 @@ interface DeckReaderProps {
   onOpenAddSectionToDeck?: (deckId?: string) => void;
   onOpenEditDeck?: (deck: LawDeck) => void;
   onDeleteCard?: (cardId: string) => void;
+  onOpenEditCard?: (card: LawCard) => void;
   numeralSystem?: NumeralSystem;
   onNumeralSystemChange?: (system: NumeralSystem) => void;
 }
@@ -38,6 +39,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
   onOpenAddSectionToDeck,
   onOpenEditDeck,
   onDeleteCard,
+  onOpenEditCard,
   numeralSystem = 'arabic',
   onNumeralSystemChange,
 }) => {
@@ -399,6 +401,16 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   </div>
 
                   <div className="flex items-center gap-1">
+                    {onOpenEditCard && (
+                      <button
+                        onClick={() => onOpenEditCard(card)}
+                        className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
+                        title="แก้ไขมาตรานี้"
+                      >
+                        <Edit3 className="w-4 h-4" />
+                      </button>
+                    )}
+
                     <button
                       onClick={() => handleCopyText(`${card.deckName} ${formatNumeralText(card.sectionNumber, numeralSystem)} ${card.title ? `(${formatNumeralText(card.title, numeralSystem)})` : ''}\n\n${formatNumeralText(card.fullText, numeralSystem)}`)}
                       className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-lg transition-colors cursor-pointer"
@@ -476,6 +488,19 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                 </div>
 
                 <div className="flex items-center gap-1.5">
+                  {/* Edit Card Button */}
+                  {onOpenEditCard && (
+                    <button
+                      id="edit-statute-btn"
+                      onClick={() => onOpenEditCard(currentCard)}
+                      className="flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 px-2 py-1.5 rounded-xl transition-colors cursor-pointer"
+                      title="แก้ไขมาตรานี้"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span className="hidden sm:inline">แก้ไข</span>
+                    </button>
+                  )}
+
                   {/* Delete Card Button */}
                   {onDeleteCard && (
                     <button
