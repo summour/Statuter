@@ -13,10 +13,17 @@ import {
   Edit3,
   Trash2,
   Download,
-  Settings
+  Settings,
+  FileText
 } from 'lucide-react';
 import { exportDeckToJson } from '../utils/storage';
-import { formatNumeralText } from '../utils/thaiLawParser';
+import { formatNumeralText, parseRawSectionNumber } from '../utils/thaiLawParser';
+import { 
+  buildLawHierarchyTree, 
+  filterCardsByHierarchyNode, 
+  formatTreeOptionLabel 
+} from '../utils/lawHierarchy';
+import { StructureTocModal } from './StructureTocModal';
 
 interface DeckReaderProps {
   deck: LawDeck | 'all';
@@ -24,6 +31,7 @@ interface DeckReaderProps {
   onBackToLibrary: () => void;
   initialCardId?: string;
   onOpenAddSectionToDeck?: (deckId?: string) => void;
+  onOpenImportModal?: (deckId?: string) => void;
   onOpenEditDeck?: (deck: LawDeck) => void;
   onDeleteCard?: (cardId: string) => void;
   onOpenEditCard?: (card: LawCard) => void;
@@ -37,46 +45,40 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
   onBackToLibrary,
   initialCardId,
   onOpenAddSectionToDeck,
+  onOpenImportModal,
   onOpenEditDeck,
   onDeleteCard,
   onOpenEditCard,
   numeralSystem = 'arabic',
   onNumeralSystemChange,
 }) => {
-  // Filter cards belonging to this deck
+  // Filter and sort cards strictly in statutory section order
   const rawDeckCards = useMemo(() => {
-    if (deck === 'all') return cards;
-    return cards.filter(c => c.deckId === deck.id);
+    const list = deck === 'all' ? [...cards] : cards.filter(c => c.deckId === deck.id);
+    return list.sort((a, b) => {
+      const numA = typeof a.sectionRawNum === 'number' && !isNaN(a.sectionRawNum) ? a.sectionRawNum : parseRawSectionNumber(a.sectionNumber);
+      const numB = typeof b.sectionRawNum === 'number' && !isNaN(b.sectionRawNum) ? b.sectionRawNum : parseRawSectionNumber(b.sectionNumber);
+      if (numA !== numB) return numA - numB;
+      return a.sectionNumber.localeCompare(b.sectionNumber, 'th');
+    });
   }, [cards, deck]);
 
   const [currentIndex, setCurrentIndex] = useState<number>(0);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [fontSize, setFontSize] = useState<'normal' | 'large' | 'xlarge'>('normal');
   const [copied, setCopied] = useState<boolean>(false);
-  const [chapterFilter, setChapterFilter] = useState<string>('all');
+  const [structureFilter, setStructureFilter] = useState<string>('all');
+  const [isTocModalOpen, setIsTocModalOpen] = useState<boolean>(false);
 
-  // Available chapters in this deck for quick filtering
-  const availableChapters = useMemo(() => {
-    const chapters = new Set<string>();
-    let hasUncategorized = false;
-    rawDeckCards.forEach(c => {
-      if (c.chapter) {
-        chapters.add(c.chapter);
-      } else {
-        hasUncategorized = true;
-      }
-    });
-    if (hasUncategorized && !chapters.has('บททั่วไป')) {
-      chapters.add('บททั่วไป');
-    }
-    return Array.from(chapters);
+  // Natural Law Structure Tree (Book -> Title -> Chapter -> Part) in chronological statute sequence
+  const treeResult = useMemo(() => {
+    return buildLawHierarchyTree(rawDeckCards);
   }, [rawDeckCards]);
 
-  // Filtered deck cards
+  // Filtered deck cards based on selected hierarchy node
   const deckCards = useMemo(() => {
-    if (chapterFilter === 'all') return rawDeckCards;
-    return rawDeckCards.filter(c => c.chapter === chapterFilter || (!c.chapter && chapterFilter === 'บททั่วไป'));
-  }, [rawDeckCards, chapterFilter]);
+    return filterCardsByHierarchyNode(rawDeckCards, structureFilter);
+  }, [rawDeckCards, structureFilter]);
 
   // If an initial card was requested, jump to it
   useEffect(() => {
@@ -147,18 +149,30 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
           <BookOpen className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
           <h2 className="text-base font-bold text-zinc-900">สำรับนี้ยังไม่มีมาตรากฎหมาย</h2>
           <p className="text-xs text-zinc-500 mt-1">คุณสามารถเพิ่มมาตราใหม่ หรือนำเข้าตัวบทลงในสำรับนี้ได้ทันที</p>
-          <div className="flex justify-center gap-2 mt-5">
+          <div className="flex flex-col sm:flex-row justify-center gap-2 mt-5">
+            {onOpenImportModal && (
+              <button
+                id="empty-deck-import-btn"
+                onClick={() => onOpenImportModal(deck !== 'all' ? deck.id : undefined)}
+                className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-900 text-white text-xs font-bold rounded-xl hover:bg-zinc-800 transition-colors cursor-pointer shadow-xs"
+              >
+                <FileText className="w-4 h-4" />
+                <span>นำเข้าตัวบทลงสำรับนี้</span>
+              </button>
+            )}
             {deck !== 'all' && onOpenAddSectionToDeck && (
               <button
+                id="empty-deck-add-btn"
                 onClick={() => onOpenAddSectionToDeck(deck.id)}
-                className="px-4 py-2 bg-zinc-900 text-white text-xs font-bold rounded-xl hover:bg-zinc-800 transition-colors cursor-pointer"
+                className="flex items-center justify-center gap-1 px-4 py-2.5 bg-zinc-100 text-zinc-800 text-xs font-bold rounded-xl hover:bg-zinc-200 transition-colors cursor-pointer"
               >
-                + เพิ่มมาตราแรก
+                <Plus className="w-4 h-4" />
+                <span>เพิ่มมาตรา</span>
               </button>
             )}
             <button
               onClick={onBackToLibrary}
-              className="px-4 py-2 bg-zinc-100 text-zinc-700 text-xs font-semibold rounded-xl hover:bg-zinc-200 transition-colors cursor-pointer"
+              className="px-4 py-2.5 bg-zinc-100 text-zinc-600 text-xs font-semibold rounded-xl hover:bg-zinc-200 transition-colors cursor-pointer"
             >
               กลับสู่ห้องสมุด
             </button>
@@ -200,6 +214,19 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
 
         {/* Right: Controls (Jump dropdown, Filter by Chapter, Actions, View mode, Font size) */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Import law text directly into this deck */}
+          {onOpenImportModal && (
+            <button
+              id="deck-import-btn"
+              onClick={() => onOpenImportModal(deck !== 'all' ? deck.id : undefined)}
+              className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl text-xs font-semibold transition-colors cursor-pointer shadow-2xs"
+              title="นำเข้าตัวบทกฎหมาย"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">นำเข้าตัวบท</span>
+            </button>
+          )}
+
           {/* Add section directly into this deck */}
           {deck !== 'all' && onOpenAddSectionToDeck && (
             <button
@@ -234,24 +261,41 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             </button>
           )}
 
-          {/* Chapter Filter if multiple chapters */}
-          {availableChapters.length > 1 && (
-            <div className="relative">
-              <select
-                id="filter-chapter-select"
-                value={chapterFilter}
-                onChange={(e) => {
-                  setChapterFilter(e.target.value);
-                  setCurrentIndex(0);
-                }}
-                className="appearance-none bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-xs font-medium text-zinc-800 py-1.5 pl-3 pr-7 rounded-xl cursor-pointer focus:outline-none"
+          {/* Natural Tree Structure Filter (บรรพ -> ลักษณะ -> หมวด -> ส่วน) & TOC Modal Button */}
+          {treeResult.hasMultipleStructures && (
+            <div className="flex items-center gap-1">
+              <button
+                id="open-toc-modal-btn"
+                onClick={() => setIsTocModalOpen(true)}
+                className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer border border-zinc-200"
+                title="เปิดสารบัญโครงสร้างกฎหมาย (Tree View)"
               >
-                <option value="all">ทุกหมวด ({rawDeckCards.length})</option>
-                {availableChapters.map(ch => (
-                  <option key={ch} value={ch}>{ch}</option>
-                ))}
-              </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                <Layers className="w-3.5 h-3.5 text-zinc-600" />
+                <span className="hidden sm:inline">สารบัญ</span>
+              </button>
+
+              <div className="relative">
+                <select
+                  id="filter-structure-select"
+                  value={structureFilter}
+                  onChange={(e) => {
+                    setStructureFilter(e.target.value);
+                    setCurrentIndex(0);
+                  }}
+                  className="appearance-none bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 text-xs font-medium text-zinc-800 py-1.5 pl-3 pr-7 rounded-xl cursor-pointer focus:outline-none max-w-[170px] sm:max-w-[240px] truncate font-sans"
+                  title="เลือกโครงสร้างกฎหมาย (บรรพ / ลักษณะ / หมวด / ส่วน)"
+                >
+                  <option value="all">
+                    โครงสร้างทั้งหมด ({formatNumeralText(treeResult.totalCards.toString(), numeralSystem)})
+                  </option>
+                  {treeResult.flatList.map((node) => (
+                    <option key={node.id} value={node.id}>
+                      {formatTreeOptionLabel(node, numeralSystem)}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown className="w-3.5 h-3.5 text-zinc-500 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+              </div>
             </div>
           )}
 
@@ -338,6 +382,30 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
         </div>
       </div>
 
+      {/* ACTIVE HIERARCHY FILTER BANNER */}
+      {structureFilter !== 'all' && (
+        <div className="flex items-center justify-between bg-zinc-100 border border-zinc-200 px-4 py-2.5 rounded-xl text-xs text-zinc-700">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="font-semibold text-zinc-900 shrink-0">กำลังกรองอ่าน:</span>
+            <span className="truncate font-medium text-zinc-800">
+              {formatNumeralText(treeResult.flatList.find(n => n.id === structureFilter)?.label || structureFilter, numeralSystem)}
+            </span>
+            <span className="text-[11px] text-zinc-500 shrink-0">
+              ({formatNumeralText(deckCards.length.toString(), numeralSystem)} มาตรา)
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              setStructureFilter('all');
+              setCurrentIndex(0);
+            }}
+            className="text-xs font-semibold text-zinc-600 hover:text-zinc-900 hover:underline shrink-0 ml-2 cursor-pointer"
+          >
+            ✕ ล้างตัวกรอง (ดูทั้งหมด)
+          </button>
+        </div>
+      )}
+
       {/* VIEW MODE: LIST OF ALL SECTIONS IN THIS DECK */}
       {viewMode === 'list' ? (
         <div className="space-y-4">
@@ -385,7 +453,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                       </span>
                     </>
                   )}
-                  {card.part && (
+                  {card.part && card.part.length <= 65 && /^ส่วน(?:ที่)?\s*([0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?|[๑-๙IVXLCDMivxlcdm]+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|สิบ)(?:\s|$|[:：\/-])/u.test(card.part.trim()) && (
                     <>
                       {(card.book || card.titleStructure || card.chapter) && <span>›</span>}
                       <span className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md font-medium">
@@ -495,17 +563,16 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   </span>
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   {/* Edit Card Button */}
                   {onOpenEditCard && (
                     <button
                       id="edit-statute-btn"
                       onClick={() => onOpenEditCard(currentCard)}
-                      className="flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 px-2 py-1.5 rounded-xl transition-colors cursor-pointer"
+                      className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-xl transition-colors cursor-pointer"
                       title="แก้ไขมาตรานี้"
                     >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">แก้ไข</span>
+                      <Edit3 className="w-4 h-4" />
                     </button>
                   )}
 
@@ -528,19 +595,13 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   <button
                     id="copy-statute-btn"
                     onClick={() => handleCopyText(`${currentCard.deckName} ${formatNumeralText(currentCard.sectionNumber, numeralSystem)} ${currentCard.title ? `(${formatNumeralText(currentCard.title, numeralSystem)})` : ''}\n\n${formatNumeralText(currentCard.fullText, numeralSystem)}`)}
-                    className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
-                    title="คัดลอก"
+                    className="p-1.5 text-zinc-400 hover:text-zinc-800 hover:bg-zinc-100 rounded-xl transition-colors cursor-pointer"
+                    title={copied ? "คัดลอกแล้ว" : "คัดลอกตัวบทกฎหมาย"}
                   >
                     {copied ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-600" />
-                        <span className="text-emerald-600 font-semibold">คัดลอกแล้ว</span>
-                      </>
+                      <Check className="w-4 h-4 text-emerald-600" />
                     ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>คัดลอก</span>
-                      </>
+                      <Copy className="w-4 h-4" />
                     )}
                   </button>
                 </div>
@@ -569,7 +630,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     </span>
                   </>
                 )}
-                {currentCard.part && (
+                {currentCard.part && currentCard.part.length <= 65 && /^ส่วน(?:ที่)?\s*([0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?|[๑-๙IVXLCDMivxlcdm]+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|สิบ)(?:\s|$|[:：\/-])/u.test(currentCard.part.trim()) && (
                   <>
                     {(currentCard.book || currentCard.titleStructure || currentCard.chapter) && <span className="text-zinc-400">›</span>}
                     <span className="bg-zinc-100/90 text-zinc-800 font-semibold px-2 py-0.5 rounded-md border border-zinc-200">
@@ -663,25 +724,21 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               </button>
             </div>
           </div>
-
-          {/* Section Jump Quick Bar / Carousel below card */}
-          <div className="mt-4 flex items-center gap-1.5 overflow-x-auto pb-2 no-scrollbar">
-            {deckCards.map((card, idx) => (
-              <button
-                key={card.id}
-                onClick={() => setCurrentIndex(idx)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-medium whitespace-nowrap transition-all cursor-pointer ${
-                  idx === currentIndex
-                    ? 'bg-zinc-900 text-white font-bold shadow-sm'
-                    : 'bg-white text-zinc-600 hover:bg-zinc-100 border border-zinc-200'
-                }`}
-              >
-                {formatNumeralText(card.sectionNumber, numeralSystem)}
-              </button>
-            ))}
-          </div>
         </div>
       )}
+      {/* STRUCTURE TABLE OF CONTENTS MODAL (TREE VIEW) */}
+      <StructureTocModal
+        isOpen={isTocModalOpen}
+        onClose={() => setIsTocModalOpen(false)}
+        treeResult={treeResult}
+        currentFilter={structureFilter}
+        onSelectFilter={(nodeId) => {
+          setStructureFilter(nodeId);
+          setCurrentIndex(0);
+        }}
+        deckTitle={deckTitle}
+        numeralSystem={numeralSystem}
+      />
     </div>
   );
 };

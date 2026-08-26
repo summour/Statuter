@@ -1,5 +1,6 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { RotateCcw, AlertTriangle } from 'lucide-react';
+import { clearAllLocalDatabase } from '../utils/storage';
 
 interface Props {
   children: ReactNode;
@@ -24,8 +25,9 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('Uncaught error in application:', error, errorInfo);
   }
 
-  private handleReset = () => {
+  private handleReset = async () => {
     try {
+      await clearAllLocalDatabase();
       localStorage.clear();
     } catch (e) {
       console.error('Failed to clear storage:', e);

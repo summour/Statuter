@@ -182,7 +182,7 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
               className="flex items-center gap-1 text-[11px] font-semibold text-zinc-500 hover:text-zinc-800 transition-colors cursor-pointer"
             >
               {showStructure ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              <span>{showStructure ? 'ซ่อนโครงสร้างกฎหมาย' : '+ ระบุโครงสร้าง (บรรพ/ลักษณะ/หมวด)'}</span>
+              <span>{showStructure ? 'ซ่อนโครงสร้างกฎหมาย' : '+ ระบุโครงสร้าง (บรรพ / ลักษณะ / หมวด / ส่วน)'}</span>
             </button>
 
             {showStructure && (

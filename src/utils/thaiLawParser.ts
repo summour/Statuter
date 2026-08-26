@@ -44,13 +44,26 @@ export function formatParagraphs(paragraphs: LawParagraph[] | undefined, system:
   }));
 }
 
-// Calculate sortable raw number from section string (e.g. "มาตรา ๑๙๓/๑" -> 193.001)
+// Calculate sortable raw number from section string (e.g. "มาตรา ๑๙๓/๑" -> 193.001, "มาตรา ๒๕ ทวิ" -> 25.001)
 export function parseRawSectionNumber(secStr: string): number {
+  if (!secStr) return 0;
   const arabicStr = thaiToArabicDigits(secStr);
   const match = arabicStr.match(/(\d+)(?:\/(\d+))?/);
   if (!match) return 0;
   const main = parseInt(match[1], 10);
-  const sub = match[2] ? parseInt(match[2], 10) / 1000 : 0;
+  let sub = match[2] ? parseInt(match[2], 10) / 1000 : 0;
+
+  // Handle Thai statutory legal suffixes (ทวิ, ตรี, จัตวา, เบญจ, ฉ, สัตต, อัฏฐ/อัฐ, นว/นพ, ทศ)
+  if (arabicStr.includes('ทวิ')) sub += 0.001;
+  else if (arabicStr.includes('ตรี')) sub += 0.002;
+  else if (arabicStr.includes('จัตวา')) sub += 0.003;
+  else if (arabicStr.includes('เบญจ')) sub += 0.004;
+  else if (arabicStr.includes('ฉศก') || (arabicStr.includes('ฉ') && !arabicStr.includes('เฉพาะ'))) sub += 0.005;
+  else if (arabicStr.includes('สัตต')) sub += 0.006;
+  else if (arabicStr.includes('อัฏฐ') || arabicStr.includes('อัฐ')) sub += 0.007;
+  else if (arabicStr.includes('นว') || arabicStr.includes('นพ')) sub += 0.008;
+  else if (arabicStr.includes('ทศ')) sub += 0.009;
+
   return main + sub;
 }
 
@@ -76,84 +89,122 @@ export function isStandaloneChapterHeader(line: string): boolean {
   return STANDALONE_CHAPTER_REGEX.test(trimmed);
 }
 
+// Strict Regex for structural divisions in Thai law
+const BOOK_PREFIX_REGEX = /^(?:บรรพ|ภาค)\s*([0-9\u0E50-\u0E59]+|[๑-๙IVXLCDMivxlcdm]+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|สิบ)(?:\s|$|[:：\/-])/u;
+const TITLE_PREFIX_REGEX = /^ลักษณะ\s*([0-9\u0E50-\u0E59]+|[๑-๙IVXLCDMivxlcdm]+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|สิบ|พิเศษ)(?:\s|$|[:：\/-])/u;
+const CHAPTER_PREFIX_REGEX = /^หมวด\s*(?:ที่\s*)?([0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?|[๑-๙IVXLCDMivxlcdm]+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|สิบ)(?:\s|$|[:：\/-])/u;
+const PART_PREFIX_REGEX = /^ส่วน(?:ที่)?\s*([0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?|[๑-๙IVXLCDMivxlcdm]+|หนึ่ง|สอง|สาม|สี่|ห้า|หก|เจ็ด|แปด|เก้า|สิบ)(?:\s|$|[:：\/-])/u;
+
 // Helper to check if a line is a major hierarchy prefix that starts a new structure
 function isMajorHierarchyPrefix(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed) return false;
+  if (trimmed.length > 80) return false;
   return (
-    /^(?:บรรพ|ภาค)\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed) ||
-    /^ลักษณะ\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed) ||
-    /^หมวด\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed) ||
-    /^ส่วน(?:ที่)?\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed) ||
+    BOOK_PREFIX_REGEX.test(trimmed) ||
+    TITLE_PREFIX_REGEX.test(trimmed) ||
+    CHAPTER_PREFIX_REGEX.test(trimmed) ||
+    PART_PREFIX_REGEX.test(trimmed) ||
+    STANDALONE_CHAPTER_REGEX.test(trimmed) ||
     /^(?:ประมวลกฎหมาย|พระราชบัญญัติ|พระราชกำหนด|รัฐธรรมนูญแห่งราชอาณาจักรไทย)/u.test(trimmed)
   );
 }
 
-function matchHierarchy(line: string, nextLine?: string): HierarchyMatch | null {
+function findNextCandidateTitle(lines: string[], startIndex: number, maxLookahead = 4): { text: string; index: number } | null {
+  for (let k = startIndex; k < lines.length && k < startIndex + maxLookahead; k++) {
+    const t = lines[k].trim();
+    if (t) {
+      if (isMajorHierarchyPrefix(t) || isSectionHeader(t) || isSignOffOrEndMatterLine(t) || isFootnoteDefinitionLine(t)) {
+        return null;
+      }
+      if (t.length > 90) return null;
+      return { text: t, index: k };
+    }
+  }
+  return null;
+}
+
+interface AdvancedHierarchyMatch {
+  type: 'book' | 'titleStructure' | 'chapter' | 'part' | 'law_title';
+  fullLabel: string;
+  consumedIndex: number;
+}
+
+function matchHierarchyAdvanced(lines: string[], i: number): AdvancedHierarchyMatch | null {
+  const line = lines[i];
   const trimmed = line.trim();
   if (!trimmed) return null;
 
   const cleanTrimmed = stripFootnotes(trimmed).trim();
 
   // 1. บรรพ / ภาค
-  if (/^(?:บรรพ|ภาค)\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed)) {
+  if (BOOK_PREFIX_REGEX.test(cleanTrimmed) && cleanTrimmed.length <= 80) {
     let full = cleanTrimmed;
-    if (nextLine && nextLine.trim() && !isMajorHierarchyPrefix(nextLine) && !isSectionHeader(nextLine) && !isSignOffOrEndMatterLine(nextLine)) {
-      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
+    let consumed = i + 1;
+    // If it only has the number or is very short, look ahead for title name (e.g. หลักทั่วไป)
+    const nextCandidate = findNextCandidateTitle(lines, i + 1);
+    if (nextCandidate) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextCandidate.text).trim()}`;
+      consumed = nextCandidate.index + 1;
     }
-    return { type: 'book', fullLabel: full };
+    return { type: 'book', fullLabel: full, consumedIndex: consumed };
   }
 
   // 2. ลักษณะ
-  if (/^ลักษณะ\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed)) {
+  if (TITLE_PREFIX_REGEX.test(cleanTrimmed) && cleanTrimmed.length <= 80) {
     let full = cleanTrimmed;
-    if (nextLine && nextLine.trim() && !isMajorHierarchyPrefix(nextLine) && !isSectionHeader(nextLine) && !isSignOffOrEndMatterLine(nextLine)) {
-      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
+    let consumed = i + 1;
+    const nextCandidate = findNextCandidateTitle(lines, i + 1);
+    if (nextCandidate) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextCandidate.text).trim()}`;
+      consumed = nextCandidate.index + 1;
     }
-    return { type: 'titleStructure', fullLabel: full };
+    return { type: 'titleStructure', fullLabel: full, consumedIndex: consumed };
   }
 
   // 3. หมวด (รวมถึง หมวด ... บทเฉพาะกาล)
-  if (/^หมวด\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed)) {
+  if (CHAPTER_PREFIX_REGEX.test(cleanTrimmed) && cleanTrimmed.length <= 80) {
     let full = cleanTrimmed;
-    if (nextLine && nextLine.trim() && !isMajorHierarchyPrefix(nextLine) && !isSectionHeader(nextLine) && !isSignOffOrEndMatterLine(nextLine)) {
-      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
+    let consumed = i + 1;
+    const nextCandidate = findNextCandidateTitle(lines, i + 1);
+    if (nextCandidate) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextCandidate.text).trim()}`;
+      consumed = nextCandidate.index + 1;
     }
-    return { type: 'chapter', fullLabel: full };
+    return { type: 'chapter', fullLabel: full, consumedIndex: consumed };
   }
 
   // 4. ส่วนที่ / ส่วน
-  if (/^ส่วน(?:ที่)?\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed)) {
+  if (PART_PREFIX_REGEX.test(cleanTrimmed) && cleanTrimmed.length <= 80) {
     let full = cleanTrimmed;
-    if (nextLine && nextLine.trim() && !isMajorHierarchyPrefix(nextLine) && !isSectionHeader(nextLine) && !isSignOffOrEndMatterLine(nextLine)) {
-      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
+    let consumed = i + 1;
+    const nextCandidate = findNextCandidateTitle(lines, i + 1);
+    if (nextCandidate) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextCandidate.text).trim()}`;
+      consumed = nextCandidate.index + 1;
     }
-    return { type: 'part', fullLabel: full };
+    return { type: 'part', fullLabel: full, consumedIndex: consumed };
   }
 
   // 5. บทเฉพาะกาล (Transitory Provisions) และบทพิเศษที่อยู่แยกเดี่ยว (Standalone Chapter)
   if (STANDALONE_CHAPTER_REGEX.test(cleanTrimmed)) {
     let full = cleanTrimmed;
-    if (
-      nextLine && 
-      nextLine.trim() && 
-      !isMajorHierarchyPrefix(nextLine) && 
-      !isSectionHeader(nextLine) && 
-      !isSignOffOrEndMatterLine(nextLine) &&
-      nextLine.trim().length < 60
-    ) {
-      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
+    let consumed = i + 1;
+    const nextCandidate = findNextCandidateTitle(lines, i + 1);
+    if (nextCandidate) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextCandidate.text).trim()}`;
+      consumed = nextCandidate.index + 1;
     }
     // Normalize typo "บทเฉพาะการ" -> "บทเฉพาะกาล"
     if (full.startsWith('บทเฉพาะการ')) {
       full = full.replace('บทเฉพาะการ', 'บทเฉพาะกาล');
     }
-    return { type: 'chapter', fullLabel: full };
+    return { type: 'chapter', fullLabel: full, consumedIndex: consumed };
   }
 
   // 6. Law Title in first few lines
   if (/^(?:ประมวลกฎหมาย|พระราชบัญญัติ|พระราชกำหนด|รัฐธรรมนูญแห่งราชอาณาจักรไทย)/u.test(trimmed)) {
-    return { type: 'law_title', fullLabel: cleanTrimmed };
+    return { type: 'law_title', fullLabel: cleanTrimmed, consumedIndex: i + 1 };
   }
 
   return null;
@@ -550,17 +601,10 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
     }
 
     // Check for Hierarchy (บรรพ, ลักษณะ, หมวด, ส่วนที่, พระราชบัญญัติ)
-    const nextLine = i + 1 < lines.length ? lines[i + 1] : undefined;
-    const hier = matchHierarchy(trimmedLine, nextLine);
+    const hier = matchHierarchyAdvanced(lines, i);
     if (hier) {
       // If we are currently collecting section text and hit hierarchy, commit section
       commitSection();
-
-      let linesToSkip = 1;
-      // If hierarchy absorbed next line as title
-      if (nextLine && nextLine.trim() && hier.fullLabel.includes(nextLine.trim())) {
-        linesToSkip = 2;
-      }
 
       switch (hier.type) {
         case 'law_title':
@@ -586,7 +630,7 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
           break;
       }
 
-      i += linesToSkip;
+      i = hier.consumedIndex;
       continue;
     }
 

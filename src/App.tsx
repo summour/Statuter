@@ -11,13 +11,16 @@ import { IOSDock, TabType } from './components/IOSDock';
 import { SettingsView } from './components/SettingsView';
 import { LawDeck, LawCard, NumeralSystem } from './types';
 import { LAW_DECKS, INITIAL_LAW_CARDS } from './data/defaultDecks';
+import { parseRawSectionNumber } from './utils/thaiLawParser';
 import { 
   loadStoredCards, 
   saveStoredCards, 
   loadStoredDecks, 
   saveStoredDecks,
   loadStoredNumeralSystem,
-  saveStoredNumeralSystem
+  saveStoredNumeralSystem,
+  loadAllDataFromDB,
+  clearAllLocalDatabase
 } from './utils/storage';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -30,6 +33,22 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCardId, setActiveCardId] = useState<string | undefined>(undefined);
   const [importNotification, setImportNotification] = useState<{ message: string; deckId?: string } | null>(null);
+
+  // Initialize and load full persistent data from IndexedDB on startup
+  useEffect(() => {
+    let isMounted = true;
+    loadAllDataFromDB().then(({ decks: dbDecks, cards: dbCards }) => {
+      if (isMounted) {
+        if (dbDecks.length > 0) setDecks(dbDecks);
+        if (dbCards.length > 0) setCards(dbCards);
+      }
+    }).catch(err => {
+      console.warn('Could not load from IndexedDB:', err);
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Modal states
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
@@ -57,21 +76,32 @@ export function App() {
     saveStoredNumeralSystem(numeralSystem);
   }, [numeralSystem]);
 
+  // Helper to ensure cards remain in exact Thai statutory sequence
+  const sortLawCards = useCallback((cardList: LawCard[]): LawCard[] => {
+    return [...cardList].sort((a, b) => {
+      const numA = typeof a.sectionRawNum === 'number' && !isNaN(a.sectionRawNum) ? a.sectionRawNum : parseRawSectionNumber(a.sectionNumber);
+      const numB = typeof b.sectionRawNum === 'number' && !isNaN(b.sectionRawNum) ? b.sectionRawNum : parseRawSectionNumber(b.sectionNumber);
+      if (numA !== numB) return numA - numB;
+      return a.sectionNumber.localeCompare(b.sectionNumber, 'th');
+    });
+  }, []);
+
   // Save new single card
   const handleSaveCard = useCallback((newCard: LawCard) => {
-    setCards(prev => [newCard, ...prev]);
-  }, []);
+    setCards(prev => sortLawCards([newCard, ...prev]));
+  }, [sortLawCards]);
 
   // Update existing single card
   const handleUpdateCard = useCallback((updatedCard: LawCard) => {
     setCards(prevCards => {
-      return prevCards.map(c => c.id === updatedCard.id ? updatedCard : c);
+      const updated = prevCards.map(c => c.id === updatedCard.id ? updatedCard : c);
+      return sortLawCards(updated);
     });
     setImportNotification({
       message: `บันทึกการแก้ไข ${updatedCard.sectionNumber} สำเร็จ`,
     });
     setTimeout(() => setImportNotification(null), 3000);
-  }, []);
+  }, [sortLawCards]);
 
   // Delete single card
   const handleDeleteCard = useCallback((cardId: string) => {
@@ -199,7 +229,7 @@ export function App() {
         updatedList = [...newCards, ...updatedList];
       }
 
-      return updatedList.sort((a, b) => a.sectionRawNum - b.sectionRawNum);
+      return sortLawCards(updatedList);
     });
 
     setImportNotification({
@@ -208,7 +238,7 @@ export function App() {
     });
 
     setTimeout(() => setImportNotification(null), 6000);
-  }, []);
+  }, [sortLawCards]);
 
   // Handle Full JSON Backup Import or Single Deck Import
   const handleImportBackup = useCallback((importedDecks: LawDeck[], importedCards: LawCard[]) => {
@@ -225,21 +255,20 @@ export function App() {
       const cardMap = new Map<string, LawCard>();
       prevCards.forEach(c => cardMap.set(c.id, c));
       importedCards.forEach(c => cardMap.set(c.id, c));
-      return Array.from(cardMap.values()).sort((a, b) => a.sectionRawNum - b.sectionRawNum);
+      return sortLawCards(Array.from(cardMap.values()));
     });
 
     setImportNotification({
       message: `นำเข้าข้อมูลสำรอง ${importedDecks.length} สำรับ และ ${importedCards.length} มาตรา เรียบร้อยแล้ว`,
     });
     setTimeout(() => setImportNotification(null), 6000);
-  }, []);
+  }, [sortLawCards]);
 
   // Reset to default cards & decks
   const handleResetData = useCallback(() => {
     setDecks([]);
-    saveStoredDecks([]);
     setCards([]);
-    saveStoredCards([]);
+    clearAllLocalDatabase();
     setSelectedDeck(null);
     setActiveCardId(undefined);
   }, []);
@@ -364,6 +393,10 @@ export function App() {
               }}
               initialCardId={activeCardId}
               onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
+              onOpenImportModal={(deckId) => {
+                if (deckId) setPreselectedDeckId(deckId);
+                setIsImportModalOpen(true);
+              }}
               onOpenEditDeck={handleOpenEditDeck}
               onDeleteCard={handleDeleteCard}
               onOpenEditCard={handleOpenEditCard}
@@ -433,11 +466,14 @@ export function App() {
       {/* Bulk Law Import Modal */}
       <ImportLawModal
         isOpen={isImportModalOpen}
-        onClose={() => setIsImportModalOpen(false)}
+        onClose={() => {
+          setIsImportModalOpen(false);
+          setPreselectedDeckId(undefined);
+        }}
         decks={decks}
         existingCards={cards}
         onImportSuccess={handleBatchImport}
-        defaultDeckId={selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined}
+        defaultDeckId={preselectedDeckId || (selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined)}
       />
 
       {/* Deck Edit / Create Modal */}
