@@ -134,50 +134,173 @@ export async function logOut(): Promise<void> {
   }
 }
 
-// Sync user decks and cards to Cloud (Firebase Firestore)
-export async function syncDataToCloud(userId: string, decks: LawDeck[], cards: LawCard[]): Promise<void> {
-  if (!userId) return;
+// Chunk size: 150 cards per document chunk to keep each document ~100-200KB (far below 1MB limit)
+const CARDS_PER_CHUNK = 150;
 
-  const batch = writeBatch(db);
+// Helper: Wrap promise with timeout
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 25000, errorMsg: string = 'การเชื่อมต่อคลาวด์หมดเวลา (Timeout)'): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error(errorMsg)), timeoutMs)
+    )
+  ]);
+}
 
-  // Write decks
-  for (const deck of decks) {
-    const deckRef = doc(db, 'users', userId, 'decks', deck.id);
-    batch.set(deckRef, {
-      ...deck,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-  }
+// Sync user decks and cards to Cloud (Firebase Firestore) with High-Performance Chunking
+export async function syncDataToCloud(
+  userId: string, 
+  decks: LawDeck[], 
+  cards: LawCard[],
+  onProgress?: (status: string) => void
+): Promise<{ totalDecks: number; totalCards: number; durationMs: number }> {
+  if (!userId) throw new Error('ไม่พบข้อมูลผู้ใช้สำหรับการซิงค์');
 
-  // Write cards
-  for (const card of cards) {
-    const cardRef = doc(db, 'users', userId, 'cards', card.id);
-    batch.set(cardRef, {
-      ...card,
-      updatedAt: new Date().toISOString()
-    }, { merge: true });
-  }
+  const startTime = Date.now();
+  onProgress?.('กำลังเตรียมโครงสร้างข้อมูลและบีบอัดสำรับ...');
 
-  // Update user lastSyncAt
-  const userRef = doc(db, 'users', userId);
-  batch.set(userRef, {
-    lastSyncAt: new Date().toISOString(),
-    totalDecks: decks.length,
-    totalCards: cards.length
-  }, { merge: true });
+  const performSync = async () => {
+    // 1. Group cards by deckId
+    const cardsByDeck: Record<string, LawCard[]> = {};
+    for (const card of cards) {
+      if (!cardsByDeck[card.deckId]) {
+        cardsByDeck[card.deckId] = [];
+      }
+      cardsByDeck[card.deckId].push(card);
+    }
+
+    // 2. Fetch existing chunks to clean up obsolete chunks if any
+    let existingChunkIds: string[] = [];
+    try {
+      const existingChunksSnap = await getDocs(collection(db, 'users', userId, 'deck_chunks'));
+      existingChunkIds = existingChunksSnap.docs.map(d => d.id);
+    } catch (err) {
+      console.warn('Could not list existing chunks, will overwrite/set directly:', err);
+    }
+
+    onProgress?.(`กำลังบันทึกข้อมูล ${decks.length} สำรับ (${cards.length} มาตรา) ขึ้นคลาวด์...`);
+
+    // Prepare writes across safe batches (max 300 writes per batch)
+    const BATCH_LIMIT = 300;
+    let currentBatch = writeBatch(db);
+    let currentBatchOps = 0;
+    const batchList: ReturnType<typeof writeBatch>[] = [currentBatch];
+
+    const addBatchOp = (fn: (b: ReturnType<typeof writeBatch>) => void) => {
+      if (currentBatchOps >= BATCH_LIMIT) {
+        currentBatch = writeBatch(db);
+        batchList.push(currentBatch);
+        currentBatchOps = 0;
+      }
+      fn(currentBatch);
+      currentBatchOps++;
+    };
+
+    // A. Write deck documents
+    for (const deck of decks) {
+      const deckRef = doc(db, 'users', userId, 'decks', deck.id);
+      addBatchOp((b) => {
+        b.set(deckRef, {
+          ...deck,
+          updatedAt: new Date().toISOString()
+        }, { merge: true });
+      });
+    }
+
+    // B. Write card chunks for each deck
+    const newChunkIds = new Set<string>();
+
+    for (const deck of decks) {
+      const deckCards = cardsByDeck[deck.id] || [];
+      const totalChunks = Math.ceil(deckCards.length / CARDS_PER_CHUNK) || 1;
+
+      if (deckCards.length === 0) {
+        // Empty chunk for deck with 0 cards
+        const chunkId = `${deck.id}_chunk_0`;
+        newChunkIds.add(chunkId);
+        const chunkRef = doc(db, 'users', userId, 'deck_chunks', chunkId);
+        addBatchOp((b) => {
+          b.set(chunkRef, {
+            deckId: deck.id,
+            chunkIndex: 0,
+            totalChunks: 1,
+            count: 0,
+            cards: [],
+            updatedAt: new Date().toISOString()
+          });
+        });
+      } else {
+        for (let i = 0; i < totalChunks; i++) {
+          const startIdx = i * CARDS_PER_CHUNK;
+          const chunkCards = deckCards.slice(startIdx, startIdx + CARDS_PER_CHUNK);
+          const chunkId = `${deck.id}_chunk_${i}`;
+          newChunkIds.add(chunkId);
+          const chunkRef = doc(db, 'users', userId, 'deck_chunks', chunkId);
+
+          addBatchOp((b) => {
+            b.set(chunkRef, {
+              deckId: deck.id,
+              chunkIndex: i,
+              totalChunks,
+              count: chunkCards.length,
+              cards: chunkCards,
+              updatedAt: new Date().toISOString()
+            });
+          });
+        }
+      }
+    }
+
+    // C. Clean up obsolete chunks
+    for (const oldId of existingChunkIds) {
+      if (!newChunkIds.has(oldId)) {
+        const oldRef = doc(db, 'users', userId, 'deck_chunks', oldId);
+        addBatchOp((b) => {
+          b.delete(oldRef);
+        });
+      }
+    }
+
+    // D. Update user metadata
+    const userRef = doc(db, 'users', userId);
+    addBatchOp((b) => {
+      b.set(userRef, {
+        lastSyncAt: new Date().toISOString(),
+        totalDecks: decks.length,
+        totalCards: cards.length,
+        syncEngineVersion: 2
+      }, { merge: true });
+    });
+
+    // Commit all batches in parallel
+    await Promise.all(batchList.map(b => b.commit()));
+  };
 
   try {
-    await batch.commit();
+    await withTimeout(performSync(), 30000, 'การซิงค์ข้อมูลขึ้นคลาวด์ใช้เวลานานเกินไป กรุณาตรวจสอบอินเทอร์เน็ต');
+    const durationMs = Date.now() - startTime;
+    return {
+      totalDecks: decks.length,
+      totalCards: cards.length,
+      durationMs
+    };
   } catch (err) {
     handleFirestoreError(err, OperationType.WRITE, `users/${userId}`);
+    throw err;
   }
 }
 
-// Fetch user data from Cloud Firestore
-export async function fetchUserDataFromCloud(userId: string): Promise<{ decks: LawDeck[]; cards: LawCard[] } | null> {
+// Fetch user data from Cloud Firestore (Supports both Chunked and Legacy single-doc formats)
+export async function fetchUserDataFromCloud(
+  userId: string,
+  onProgress?: (status: string) => void
+): Promise<{ decks: LawDeck[]; cards: LawCard[] } | null> {
   if (!userId) return null;
 
-  try {
+  const performFetch = async () => {
+    onProgress?.('กำลังดึงข้อมูลสำรับจากคลาวด์...');
+
+    // 1. Fetch decks
     let decksSnapshot;
     try {
       decksSnapshot = await getDocs(collection(db, 'users', userId, 'decks'));
@@ -186,28 +309,57 @@ export async function fetchUserDataFromCloud(userId: string): Promise<{ decks: L
       return null;
     }
 
-    let cardsSnapshot;
-    try {
-      cardsSnapshot = await getDocs(collection(db, 'users', userId, 'cards'));
-    } catch (err) {
-      handleFirestoreError(err, OperationType.LIST, `users/${userId}/cards`);
-      return null;
-    }
-
     const cloudDecks: LawDeck[] = [];
     decksSnapshot.forEach(docSnap => {
       cloudDecks.push(docSnap.data() as LawDeck);
     });
 
-    const cloudCards: LawCard[] = [];
-    cardsSnapshot.forEach(docSnap => {
-      cloudCards.push(docSnap.data() as LawCard);
-    });
+    onProgress?.('กำลังดาวน์โหลดข้อมูลตัวบทกฎหมาย...');
+
+    const cardsMap = new Map<string, LawCard>();
+
+    // 2. Fetch chunked cards (Fast modern engine)
+    try {
+      const chunksSnap = await getDocs(collection(db, 'users', userId, 'deck_chunks'));
+      chunksSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (Array.isArray(data.cards)) {
+          for (const card of data.cards) {
+            if (card && card.id) {
+              cardsMap.set(card.id, card as LawCard);
+            }
+          }
+        }
+      });
+    } catch (err) {
+      console.warn('Could not fetch deck_chunks:', err);
+    }
+
+    // 3. Fallback: If no chunked cards found, check legacy cards subcollection
+    if (cardsMap.size === 0) {
+      try {
+        const legacyCardsSnap = await getDocs(collection(db, 'users', userId, 'cards'));
+        legacyCardsSnap.forEach(docSnap => {
+          const card = docSnap.data() as LawCard;
+          if (card && card.id) {
+            cardsMap.set(card.id, card);
+          }
+        });
+      } catch (err) {
+        console.warn('Could not fetch legacy cards collection:', err);
+      }
+    }
+
+    const cloudCards = Array.from(cardsMap.values());
 
     return {
       decks: cloudDecks,
       cards: cloudCards
     };
+  };
+
+  try {
+    return await withTimeout(performFetch(), 30000, 'การดึงข้อมูลจากคลาวด์หมดเวลา กรุณาลองใหม่อีกครั้ง');
   } catch (error) {
     console.error('Error fetching data from Firestore:', error);
     throw error;

@@ -104,11 +104,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!user) return;
     try {
       setIsSyncing(true);
-      await syncDataToCloud(user.uid, decks, cards);
-      showStatus(`ซิงค์ข้อมูล ${decks.length} สำรับ (${cards.length} มาตรา) ขึ้นคลาวด์สำเร็จ`);
-    } catch (err) {
-      console.error(err);
-      showStatus('เกิดข้อผิดพลาดในการซิงค์ข้อมูลขึ้นคลาวด์');
+      showStatus('กำลังบีบอัดและซิงค์ข้อมูลขึ้นคลาวด์...');
+      const result = await syncDataToCloud(user.uid, decks, cards, (msg) => {
+        setStatusMsg(msg);
+      });
+      const sec = (result.durationMs / 1000).toFixed(1);
+      showStatus(`ซิงค์ข้อมูล ${result.totalDecks} สำรับ (${result.totalCards} มาตรา) สำเร็จใน ${sec} วินาที`);
+    } catch (err: any) {
+      console.error('Cloud Sync Error:', err);
+      const msg = err?.message || 'เกิดข้อผิดพลาดในการซิงค์ข้อมูลขึ้นคลาวด์';
+      showStatus(msg.includes('{') ? 'เกิดข้อผิดพลาดในการเชื่อมต่อคลาวด์ กรุณาลองใหม่อีกครั้ง' : msg);
     } finally {
       setIsSyncing(false);
     }
@@ -119,16 +124,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     if (!user) return;
     try {
       setIsPulling(true);
-      const cloudData = await fetchUserDataFromCloud(user.uid);
+      showStatus('กำลังดึงข้อมูลจากคลาวด์...');
+      const cloudData = await fetchUserDataFromCloud(user.uid, (msg) => {
+        setStatusMsg(msg);
+      });
       if (cloudData && (cloudData.decks.length > 0 || cloudData.cards.length > 0)) {
         onImportBackup(cloudData.decks, cloudData.cards);
         showStatus(`ดาวน์โหลดข้อมูลจากคลาวด์สำเร็จ: ${cloudData.decks.length} สำรับ, ${cloudData.cards.length} มาตรา`);
       } else {
         showStatus('ไม่พบข้อมูลสำรองบนคลาวด์');
       }
-    } catch (err) {
-      console.error(err);
-      showStatus('เกิดข้อผิดพลาดในการดึงข้อมูลจากคลาวด์');
+    } catch (err: any) {
+      console.error('Cloud Pull Error:', err);
+      const msg = err?.message || 'เกิดข้อผิดพลาดในการดึงข้อมูลจากคลาวด์';
+      showStatus(msg.includes('{') ? 'เกิดข้อผิดพลาดในการดึงข้อมูล กรุณาลองใหม่อีกครั้ง' : msg);
     } finally {
       setIsPulling(false);
     }

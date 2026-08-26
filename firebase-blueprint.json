@@ -52,6 +52,20 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "deckId", "sectionNumber", "content"]
+    },
+    "CardChunk": {
+      "title": "CardChunk",
+      "description": "High-performance batch chunk of law cards to optimize quota and sync speed",
+      "type": "object",
+      "properties": {
+        "deckId": { "type": "string" },
+        "chunkIndex": { "type": "number" },
+        "totalChunks": { "type": "number" },
+        "count": { "type": "number" },
+        "cards": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["deckId", "chunkIndex", "cards"]
     }
   },
   "firestore": {
@@ -66,6 +80,10 @@
     "/users/{userId}/cards/{cardId}": {
       "schema": "UserCard",
       "description": "User law cards"
+    },
+    "/users/{userId}/deck_chunks/{chunkId}": {
+      "schema": "CardChunk",
+      "description": "Chunked card bundles for fast high-volume legal statute synchronization"
     }
   }
 }

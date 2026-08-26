@@ -25,6 +25,11 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
 
+      // User chunked card bundles
+      match /deck_chunks/{chunkId} {
+        allow read, write: if isOwner(userId);
+      }
+
       // Any other user subcollections
       match /{allChildren=**} {
         allow read, write: if isOwner(userId);
