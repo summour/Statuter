@@ -13,6 +13,7 @@ import {
   doc, 
   setDoc, 
   getDoc, 
+  deleteDoc,
   collection, 
   getDocs, 
   writeBatch,
@@ -682,14 +683,25 @@ export async function publishOfficialDeckToCloud(
   };
 }
 
-// 4. Delete Official Deck from Cloud & Local
+// 4. Delete Official Deck from Cloud & Local (Instant-First Non-Blocking)
 export async function deleteOfficialDeckFromCloud(deckId: string): Promise<void> {
+  // 1. Delete from local IndexedDB cache immediately (<10ms)
   await deleteOfficialDeckFromLocalDB(deckId);
-  try {
-    await setDoc(doc(db, 'official_decks', deckId), { isDeleted: true, updatedAt: Date.now() }, { merge: true });
-  } catch (error) {
-    console.warn('Cloud deck deletion deferred:', error);
-  }
+
+  // 2. Perform Cloud deletion in background (non-blocking)
+  const performCloudDelete = async () => {
+    try {
+      await deleteDoc(doc(db, 'official_decks', deckId, 'content', 'raw'));
+    } catch {}
+    try {
+      await deleteDoc(doc(db, 'official_decks', deckId));
+    } catch {}
+  };
+
+  // Fire-and-forget so UI deletes instantaneously
+  performCloudDelete().catch(err => {
+    console.warn('Cloud deck delete background warning:', err);
+  });
 }
 
 // 5. Toggle Official Deck Publish Status (Admin Only)

@@ -204,21 +204,21 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Delete official deck confirmation execution
   const handleConfirmDeleteDeck = async () => {
     if (!deckToDelete) return;
-    setIsDeletingDeck(true);
+    const target = deckToDelete;
+    // Immediate UI update
+    setDeckToDelete(null);
+    setOfficialDecks(prev => prev.filter(d => d.id !== target.id));
+    if (selectedDeck?.id === target.id) {
+      setSelectedDeck(null);
+      setSelectedDeckCards([]);
+      setActiveSubTab('decks');
+    }
+    showToast(`ลบ "${target.name}" ออกจากคลังส่วนกลางแล้ว`, 'success');
+
     try {
-      await deleteOfficialDeckFromCloud(deckToDelete.id);
-      setOfficialDecks(prev => prev.filter(d => d.id !== deckToDelete.id));
-      if (selectedDeck?.id === deckToDelete.id) {
-        setSelectedDeck(null);
-        setSelectedDeckCards([]);
-        setActiveSubTab('decks');
-      }
-      showToast(`ลบ "${deckToDelete.name}" ออกจากคลังส่วนกลางแล้ว`, 'success');
-      setDeckToDelete(null);
+      await deleteOfficialDeckFromCloud(target.id);
     } catch (err) {
-      showToast('เกิดข้อผิดพลาดในการลบสำรับ', 'error');
-    } finally {
-      setIsDeletingDeck(false);
+      console.warn('Background deck deletion notice:', err);
     }
   };
 

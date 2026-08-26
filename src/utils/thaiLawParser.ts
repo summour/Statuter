@@ -232,27 +232,31 @@ export function isFootnoteDefinitionLine(line: string): boolean {
   );
 }
 
-// Identify end-matter headers: Footnotes, Amending Acts (พ.ร.บ. แก้ไขเพิ่มเติม), Sign-offs (ผู้รับสนองพระราชโองการ), etc.
-export function isEndMatterHeader(line: string): boolean {
-  const trimmed = line.trim();
-  return (
-    /^(?:พระราชบัญญัติแก้ไขเพิ่มเติม|พระราชบัญญัติให้ใช้|พระราชกำหนด|ประกาศคณะปฏิวัติ|เชิงอรรถ|หมายเหตุ\s*[:：-]|เหตุผลในการประกาศใช้|หมายเหตุท้าย|ผู้รับสนองพระราชโองการ|ผู้รับสนองพระบรมราชโองการ|ผู้สนองพระบรมราชโองการ|พระราชทานไว้\s*ณ|ประกาศ\s*ณ\s*วันที่|ให้ไว้\s*ณ\s*วันที่|\(พระปรมาภิไธย\)|\[[0-9\u0E50-\u0E59]+\]\s*(?:ราชกิจจานุเบกษา|แก้ไข|ยกเลิก|ความเดิม|พระราช|พ\.ร\.บ\.))/u.test(trimmed) ||
-    /^(?:นายกรัฐมนตรี|ประธานสภานิติบัญญัติแห่งชาติ|ประธานคณะรักษาความสงบแห่งชาติ|ประธานรัฐสภา)$/u.test(trimmed)
-  );
-}
-
-// Check if a line is a legislative sign-off / countersignature / name / position line
-export function isSignOffOrEndMatterLine(line: string): boolean {
+// Check if a line is a legislative sign-off / countersignature line
+export function isSignOffLine(line: string): boolean {
   const trimmed = line.trim();
   if (!trimmed) return false;
   return (
-    isEndMatterHeader(trimmed) ||
     /^(?:ผู้รับสนองพระราชโองการ|ผู้รับสนองพระบรมราชโองการ|ผู้สนองพระบรมราชโองการ)/u.test(trimmed) ||
     /^(?:พระราชทานไว้\s*ณ|ประกาศ\s*ณ\s*วันที่|ให้ไว้\s*ณ\s*วันที่|\(พระปรมาภิไธย\))/u.test(trimmed) ||
-    /^(?:หมายเหตุ\s*[:：-]|เหตุผลในการประกาศใช้|หมายเหตุท้าย)/u.test(trimmed) ||
-    /^(?:นายกรัฐมนตรี|ประธานสภานิติบัญญัติแห่งชาติ|ประธานคณะรักษาความสงบแห่งชาติ|ประธานรัฐสภา|รัฐมนตรีว่าการ)$/u.test(trimmed) ||
-    /^(?:พลเอก|พลโท|พลตรี|พันเอก|พันโท|พันตรี|ร้อยเอก|นาย|นาง|นางสาว|พลตำรวจเอก|หม่อมราชวงศ์|ม\.ร\.ว\.)\s+[^\n]+/u.test(trimmed) && trimmed.length < 50
+    /^(?:นายกรัฐมนตรี|ประธานสภานิติบัญญัติแห่งชาติ|ประธานคณะรักษาความสงบแห่งชาติ|ประธานรัฐสภา|รัฐมนตรีว่าการ)/u.test(trimmed) ||
+    (/^(?:พลเอก|พลโท|พลตรี|พันเอก|พันโท|พันตรี|ร้อยเอก|นาย|นาง|นางสาว|พลตำรวจเอก|หม่อมราชวงศ์|ม\.ร\.ว\.)\s+[^\n]+/u.test(trimmed) && trimmed.length < 50)
   );
+}
+
+// Identify true trailing end-matter headers at document bottom: Amending Acts (พ.ร.บ. แก้ไขเพิ่มเติม), Footnotes list, etc.
+export function isEndMatterHeader(line: string): boolean {
+  const trimmed = line.trim();
+  return (
+    /^(?:พระราชบัญญัติแก้ไขเพิ่มเติม|รัฐธรรมนูญแก้ไขเพิ่มเติม|ประกาศคณะรักษาความสงบแห่งชาติ|ประกาศคณะปฏิวัติ\s*ฉบับที่|เชิงอรรถ|หมายเหตุ\s*[:：-]|เหตุผลในการประกาศใช้|หมายเหตุท้าย|\[[0-9\u0E50-\u0E59]+\]\s*(?:ราชกิจจานุเบกษา|แก้ไข|ยกเลิก|ความเดิม|พระราช|พ\.ร\.บ\.))/u.test(trimmed)
+  );
+}
+
+// Check if a line is a legislative sign-off or end-matter line
+export function isSignOffOrEndMatterLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return isSignOffLine(trimmed) || isEndMatterHeader(trimmed);
 }
 
 // Strip sign-off, royal approval, and end-matter blocks from statute text
@@ -266,12 +270,7 @@ export function stripSignOffAndEndMatter(text: string): string {
     const trimmed = rawLine.trim();
 
     // If we hit any sign-off or end-matter header, stop taking any subsequent lines
-    if (
-      isEndMatterHeader(trimmed) ||
-      /^(?:ผู้รับสนองพระราชโองการ|ผู้รับสนองพระบรมราชโองการ|ผู้สนองพระบรมราชโองการ)/u.test(trimmed) ||
-      /^(?:พระราชทานไว้\s*ณ|ประกาศ\s*ณ\s*วันที่|ให้ไว้\s*ณ\s*วันที่|\(พระปรมาภิไธย\))/u.test(trimmed) ||
-      /^(?:หมายเหตุ\s*[:：-]|เหตุผลในการประกาศใช้)/u.test(trimmed)
-    ) {
+    if (isSignOffOrEndMatterLine(trimmed)) {
       break;
     }
 
@@ -402,6 +401,7 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
   let currentSectionLines: string[] = [];
   let currentStartLine = 1;
   let insideEndMatter = false;
+  let insideTableOfContents = false;
 
   const seenSectionNumbers = new Set<string>();
   const duplicateSectionNumbers = new Set<string>();
@@ -464,8 +464,12 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
       status = 'uncertain';
       uncertaintyReason = 'พบเครื่องหมายวงเล็บเหลี่ยม [...] ไม่สมบูรณ์ (อาจมีเชิงอรรถค้าง)';
     } else if (isDuplicateInFile) {
-      status = 'duplicate';
-      uncertaintyReason = 'พบเลขมาตรานี้ซ้ำกันหลายครั้งในไฟล์นำเข้าเดียวกัน';
+      // If one section is from Promulgating Act (พ.ร.บ. ให้ใช้ฯ) and one from Main Code, treat both as valid
+      const isEnactingAct = (currentBook && currentBook.includes('ให้ใช้')) || (currentChapter && currentChapter.includes('ให้ใช้'));
+      if (!isEnactingAct) {
+        status = 'duplicate';
+        uncertaintyReason = 'พบเลขมาตรานี้ซ้ำกันหลายครั้งในไฟล์นำเข้าเดียวกัน';
+      }
     } else if (existingMatch) {
       status = 'duplicate';
       uncertaintyReason = `พบมาตรานี้มีอยู่แล้วในฐานข้อมูล (${existingMatch.deckShortName || existingMatch.deckName})`;
@@ -521,11 +525,9 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
   };
 
   // Pre-scan to identify duplicate section numbers in file (ignoring end-matter if filtered)
-  let preScanEndMatter = false;
   for (const line of lines) {
     const trimmed = line.trim();
-    if (isEndMatterHeader(trimmed) && seenSectionNumbers.size > 0) {
-      preScanEndMatter = true;
+    if (isEndMatterHeader(trimmed) && seenSectionNumbers.size > 10) {
       if (shouldFilterAmendingActs) break;
     }
     if (SECTION_START_REGEX.test(trimmed)) {
@@ -549,10 +551,10 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
     const rawLine = lines[i];
     const trimmedLine = rawLine.trim();
 
-    // Check for End-Matter / Amending Acts at the bottom of the law text
-    if (isEndMatterHeader(trimmedLine) && sections.length > 0) {
+    // Check for True End-Matter / Amending Acts at the bottom of the law text (e.g. after schedules)
+    if (isEndMatterHeader(trimmedLine) && sections.length >= 10) {
       if (shouldFilterAmendingActs) {
-        // Commit current section and stop parsing end-matter amending acts into main code
+        // Commit current section and stop parsing trailing amending acts / historical notes
         commitSection();
         break;
       } else {
@@ -572,8 +574,42 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
       continue;
     }
 
+    // Check for Table of Contents header (สารบาญ / สารบัญ)
+    if (/^\s*(?:สารบาญ|สารบัญ)\s*$/u.test(trimmedLine)) {
+      commitSection();
+      insideTableOfContents = true;
+      i++;
+      continue;
+    }
+
     // Skip footnote definition lines if enabled
     if (shouldFilterFootnotes && isFootnoteDefinitionLine(trimmedLine)) {
+      i++;
+      continue;
+    }
+
+    // If currently inside Table of Contents:
+    if (insideTableOfContents) {
+      // Check if we hit the actual code body starting with real Section 1
+      if (SECTION_START_REGEX.test(trimmedLine)) {
+        insideTableOfContents = false;
+        // Proceed to parse this line below
+      } else if (/^(?:ประมวลกฎหมาย|พระราชบัญญัติ)/u.test(trimmedLine) && !trimmedLine.match(/[0-9\u0E50-\u0E59]+-[0-9\u0E50-\u0E59]+/)) {
+        // Main law title re-declaration starting the actual body
+        insideTableOfContents = false;
+        currentLawName = stripFootnotes(trimmedLine).trim();
+        i++;
+        continue;
+      } else {
+        // Skip Table of Contents line
+        i++;
+        continue;
+      }
+    }
+
+    // Check for Legislative Sign-off (e.g. ผู้รับสนองพระบรมราชโองการ, นายกรัฐมนตรี)
+    if (isSignOffLine(trimmedLine)) {
+      commitSection();
       i++;
       continue;
     }
