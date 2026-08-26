@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LawDeck, LawCard, LawParagraph } from '../types';
-import { stripFootnotes, parseRawSectionNumber } from '../utils/thaiLawParser';
+import { stripFootnotes, parseRawSectionNumber, stripSignOffAndEndMatter, isSignOffOrEndMatterLine } from '../utils/thaiLawParser';
 import { X, Check, Edit3, ChevronDown, ChevronUp, Layers, BookOpen, AlertCircle } from 'lucide-react';
 
 interface CardEditModalProps {
@@ -59,7 +59,7 @@ export const CardEditModal: React.FC<CardEditModalProps> = ({
 
   // Helper to parse paragraphs from text
   const computeParagraphs = (text: string): LawParagraph[] | undefined => {
-    const clean = text.trim();
+    const clean = stripSignOffAndEndMatter(text).trim();
     if (!clean) return undefined;
 
     const lines = clean.split(/\n\s*\n/).map(t => t.trim()).filter(Boolean);
@@ -78,33 +78,42 @@ export const CardEditModal: React.FC<CardEditModalProps> = ({
   const parseLineArray = (lines: string[]): LawParagraph[] => {
     const thaiNumbers = ['หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า', 'สิบ', 'สิบเอ็ด', 'สิบสอง'];
     let paragraphCount = 0;
+    const validParagraphs: LawParagraph[] = [];
 
-    return lines.map((line) => {
+    for (const line of lines) {
+      if (isSignOffOrEndMatterLine(line)) {
+        break; // Stop at sign-off / countersignature
+      }
+
       // Check if it starts with an item indicator like (๑), (1), (ก)
       const subItemMatch = line.match(/^([\(（][0-9๑-๙ivxIVXก-ฮa-zA-Z]+[\)）])/);
       if (subItemMatch) {
-        return {
+        validParagraphs.push({
           label: `อนุ ${subItemMatch[1]}`,
           text: line,
-        };
+        });
+        continue;
       }
 
       // Check if explicit label in text like "วรรคสอง"
       const explicitVak = line.match(/^(วรรค[^\s]+)/);
       if (explicitVak) {
-        return {
+        validParagraphs.push({
           label: explicitVak[1],
           text: line.replace(/^(วรรค[^\s]+)\s*/, ''),
-        };
+        });
+        continue;
       }
 
       paragraphCount++;
       const label = `วรรค${thaiNumbers[paragraphCount - 1] || paragraphCount}`;
-      return {
+      validParagraphs.push({
         label,
         text: line,
-      };
-    });
+      });
+    }
+
+    return validParagraphs;
   };
 
   const handleFormSubmit = (e: React.FormEvent) => {

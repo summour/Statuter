@@ -137,19 +137,62 @@ export function isSectionHeader(line: string): boolean {
   return SECTION_START_REGEX.test(line.trim());
 }
 
-// Identify end-matter headers: Footnotes, Amending Acts (พ.ร.บ. แก้ไขเพิ่มเติม), etc.
+// Identify end-matter headers: Footnotes, Amending Acts (พ.ร.บ. แก้ไขเพิ่มเติม), Sign-offs (ผู้รับสนองพระราชโองการ), etc.
 export function isEndMatterHeader(line: string): boolean {
   const trimmed = line.trim();
   return (
-    /^(?:พระราชบัญญัติแก้ไขเพิ่มเติม|พระราชบัญญัติให้ใช้|พระราชกำหนด|ประกาศคณะปฏิวัติ|เชิงอรรถ|หมายเหตุ\s*:-|\[[0-9\u0E50-\u0E59]+\]\s*(?:ราชกิจจานุเบกษา|แก้ไข|ยกเลิก|ความเดิม|พระราช|พ\.ร\.บ\.))/u.test(trimmed)
+    /^(?:พระราชบัญญัติแก้ไขเพิ่มเติม|พระราชบัญญัติให้ใช้|พระราชกำหนด|ประกาศคณะปฏิวัติ|เชิงอรรถ|หมายเหตุ\s*[:：-]|เหตุผลในการประกาศใช้|หมายเหตุท้าย|ผู้รับสนองพระราชโองการ|ผู้รับสนองพระบรมราชโองการ|ผู้สนองพระบรมราชโองการ|พระราชทานไว้\s*ณ|ประกาศ\s*ณ\s*วันที่|ให้ไว้\s*ณ\s*วันที่|\(พระปรมาภิไธย\)|\[[0-9\u0E50-\u0E59]+\]\s*(?:ราชกิจจานุเบกษา|แก้ไข|ยกเลิก|ความเดิม|พระราช|พ\.ร\.บ\.))/u.test(trimmed) ||
+    /^(?:นายกรัฐมนตรี|ประธานสภานิติบัญญัติแห่งชาติ|ประธานคณะรักษาความสงบแห่งชาติ|ประธานรัฐสภา)$/u.test(trimmed)
   );
+}
+
+// Check if a line is a legislative sign-off / countersignature / name / position line
+export function isSignOffOrEndMatterLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return (
+    isEndMatterHeader(trimmed) ||
+    /^(?:ผู้รับสนองพระราชโองการ|ผู้รับสนองพระบรมราชโองการ|ผู้สนองพระบรมราชโองการ)/u.test(trimmed) ||
+    /^(?:พระราชทานไว้\s*ณ|ประกาศ\s*ณ\s*วันที่|ให้ไว้\s*ณ\s*วันที่|\(พระปรมาภิไธย\))/u.test(trimmed) ||
+    /^(?:หมายเหตุ\s*[:：-]|เหตุผลในการประกาศใช้|หมายเหตุท้าย)/u.test(trimmed) ||
+    /^(?:นายกรัฐมนตรี|ประธานสภานิติบัญญัติแห่งชาติ|ประธานคณะรักษาความสงบแห่งชาติ|ประธานรัฐสภา|รัฐมนตรีว่าการ)$/u.test(trimmed) ||
+    /^(?:พลเอก|พลโท|พลตรี|พันเอก|พันโท|พันตรี|ร้อยเอก|นาย|นาง|นางสาว|พลตำรวจเอก|หม่อมราชวงศ์|ม\.ร\.ว\.)\s+[^\n]+/u.test(trimmed) && trimmed.length < 50
+  );
+}
+
+// Strip sign-off, royal approval, and end-matter blocks from statute text
+export function stripSignOffAndEndMatter(text: string): string {
+  if (!text) return '';
+  const lines = text.split('\n');
+  const cleanLines: string[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const rawLine = lines[i];
+    const trimmed = rawLine.trim();
+
+    // If we hit any sign-off or end-matter header, stop taking any subsequent lines
+    if (
+      isEndMatterHeader(trimmed) ||
+      /^(?:ผู้รับสนองพระราชโองการ|ผู้รับสนองพระบรมราชโองการ|ผู้สนองพระบรมราชโองการ)/u.test(trimmed) ||
+      /^(?:พระราชทานไว้\s*ณ|ประกาศ\s*ณ\s*วันที่|ให้ไว้\s*ณ\s*วันที่|\(พระปรมาภิไธย\))/u.test(trimmed) ||
+      /^(?:หมายเหตุ\s*[:：-]|เหตุผลในการประกาศใช้)/u.test(trimmed)
+    ) {
+      break;
+    }
+
+    cleanLines.push(rawLine);
+  }
+
+  return cleanLines.join('\n').trim();
 }
 
 // Extract paragraphs (วรรค / อนุมาตรา) accurately from verbatim section text
 export function extractParagraphs(fullText: string, shouldFilterFootnotes = true): LawParagraph[] {
   if (!fullText || !fullText.trim()) return [];
 
-  const cleanedText = shouldFilterFootnotes ? stripFootnotes(fullText) : fullText;
+  // Strip sign-off, countersignatures, and end-matter first
+  const signOffStripped = stripSignOffAndEndMatter(fullText);
+  const cleanedText = shouldFilterFootnotes ? stripFootnotes(signOffStripped) : signOffStripped;
   const rawLines = cleanedText.split('\n');
   const paragraphs: LawParagraph[] = [];
   const thaiOrdinalWords = [
@@ -169,7 +212,8 @@ export function extractParagraphs(fullText: string, shouldFilterFootnotes = true
     if (currentLabel && currentTextLines.length > 0) {
       const combinedText = currentTextLines.join(' ').replace(/\s+/g, ' ').trim();
       const finalText = shouldFilterFootnotes ? stripFootnotes(combinedText) : combinedText;
-      if (finalText) {
+      // Ensure the paragraph text itself isn't a sign-off line
+      if (finalText && !isSignOffOrEndMatterLine(finalText)) {
         paragraphs.push({
           label: currentLabel,
           text: finalText,
@@ -188,6 +232,12 @@ export function extractParagraphs(fullText: string, shouldFilterFootnotes = true
       // Empty line signals explicit separation or skipped footnote line
       flush();
       continue;
+    }
+
+    // If this line is a sign-off or end-matter line, stop extracting further paragraphs
+    if (isSignOffOrEndMatterLine(trimmed)) {
+      flush();
+      break;
     }
 
     // Check if line starts with sub-item like (๑), (๒), (ก)...
@@ -273,6 +323,7 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
 
     // Join verbatim text preserving original structure
     let processedFullText = sectionLinesToProcess.join('\n').trim();
+    processedFullText = stripSignOffAndEndMatter(processedFullText);
     if (shouldFilterFootnotes) {
       processedFullText = stripFootnotes(processedFullText);
     }
@@ -548,5 +599,48 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
     errorSections,
     rawTextLength: rawText.length,
     parsedAt: new Date().toISOString(),
+  };
+}
+
+/**
+ * Sanitize an existing card by stripping any trailing legislative sign-offs,
+ * countersignatures (เช่น ผู้รับสนองพระราชโองการ, นายกรัฐมนตรี), and cleaning its paragraphs.
+ */
+export function sanitizeCardTextAndParagraphs(card: LawCard): LawCard {
+  const cleanFullText = stripSignOffAndEndMatter(card.fullText || '');
+  let cleanParagraphs = card.paragraphs;
+
+  if (cleanParagraphs && cleanParagraphs.length > 0) {
+    cleanParagraphs = cleanParagraphs.filter(p => {
+      const labelTrimmed = (p.label || '').trim();
+      const textTrimmed = (p.text || '').trim();
+      if (isSignOffOrEndMatterLine(textTrimmed) || isSignOffOrEndMatterLine(labelTrimmed)) {
+        return false;
+      }
+      return true;
+    });
+
+    // Re-index standard ordinal labels if they were sequentially numbered
+    const thaiOrdinalWords = [
+      'วรรคหนึ่ง', 'วรรคสอง', 'วรรคสาม', 'วรรคสี่', 'วรรคห้า',
+      'วรรคหก', 'วรรคเจ็ด', 'วรรคแปด', 'วรรคเก้า', 'วรรคสิบ',
+      'วรรคสิบเอ็ด', 'วรรคสิบสอง', 'วรรคสิบสาม', 'วรรคสิบสี่'
+    ];
+
+    let vakCount = 0;
+    cleanParagraphs = cleanParagraphs.map(p => {
+      if (p.label.startsWith('วรรค')) {
+        const newLabel = thaiOrdinalWords[vakCount] || `วรรค${vakCount + 1}`;
+        vakCount++;
+        return { ...p, label: newLabel };
+      }
+      return p;
+    });
+  }
+
+  return {
+    ...card,
+    fullText: cleanFullText,
+    paragraphs: cleanParagraphs && cleanParagraphs.length > 0 ? cleanParagraphs : undefined,
   };
 }

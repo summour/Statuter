@@ -1,5 +1,6 @@
 import { LawCard, LawDeck, NumeralSystem } from '../types';
 import { LAW_DECKS, INITIAL_LAW_CARDS } from '../data/defaultDecks';
+import { sanitizeCardTextAndParagraphs } from './thaiLawParser';
 
 const CARDS_STORAGE_KEY = 'law_library_cards_v4';
 const DECKS_STORAGE_KEY = 'law_library_decks_v4';
@@ -54,7 +55,7 @@ export function loadStoredCards(): LawCard[] {
     if (data) {
       const parsed = JSON.parse(data);
       if (Array.isArray(parsed)) {
-        return parsed;
+        return parsed.map(c => sanitizeCardTextAndParagraphs(c));
       }
     }
   } catch (e) {

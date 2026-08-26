@@ -20,6 +20,7 @@ import {
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { LawDeck, LawCard } from '../types';
+import { sanitizeCardTextAndParagraphs } from '../utils/thaiLawParser';
 
 // Initialize Firebase App singleton
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -405,7 +406,7 @@ export async function fetchUserDataFromCloud(
       }
     }
 
-    const cloudCards = Array.from(cardsMap.values());
+    const cloudCards = Array.from(cardsMap.values()).map(c => sanitizeCardTextAndParagraphs(c));
 
     return {
       decks: cloudDecks,

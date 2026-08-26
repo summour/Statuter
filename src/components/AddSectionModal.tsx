@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { LawDeck, LawCard, LawParagraph } from '../types';
-import { stripFootnotes } from '../utils/thaiLawParser';
+import { stripFootnotes, extractParagraphs, stripSignOffAndEndMatter } from '../utils/thaiLawParser';
 import { X, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface AddSectionModalProps {
@@ -45,7 +45,7 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
     }
 
     const cleanSecInput = stripFootnotes(sectionNumber).trim();
-    const cleanFullTextInput = stripFootnotes(fullText).trim();
+    const cleanFullTextInput = stripFootnotes(stripSignOffAndEndMatter(fullText)).trim();
 
     if (!cleanSecInput || !cleanFullTextInput) {
       alert('กรุณากรอกเลขมาตราและตัวบทกฎหมาย');
@@ -54,26 +54,8 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
 
     const rawNum = parseInt(cleanSecInput.replace(/\D/g, ''), 10) || 999;
 
-    // Parse paragraphs automatically if there are blank lines or paragraph markers
-    const textLines = cleanFullTextInput.split('\n\n').map(t => t.trim()).filter(Boolean);
-    let parsedParagraphs: LawParagraph[] | undefined = undefined;
-
-    if (textLines.length > 1) {
-      const thaiNumbers = ['หนึ่ง', 'สอง', 'สาม', 'สี่', 'ห้า', 'หก', 'เจ็ด', 'แปด', 'เก้า', 'สิบ'];
-      parsedParagraphs = textLines.map((line, idx) => {
-        let label = `วรรค${thaiNumbers[idx] || (idx + 1)}`;
-        if (line.startsWith('(') || line.startsWith('（') || line.startsWith('(๑)') || line.startsWith('(1)')) {
-          const match = line.match(/^(\([0-9๑-๙ivxIVX]+\))/);
-          if (match) {
-            label = `อนุ ${match[1]}`;
-          }
-        }
-        return {
-          label,
-          text: line,
-        };
-      });
-    }
+    // Parse paragraphs automatically using robust thai parser
+    const parsedParagraphs = extractParagraphs(cleanFullTextInput);
 
     const formattedSecNum = cleanSecInput.startsWith('มาตรา') ? cleanSecInput : `มาตรา ${cleanSecInput}`;
 
