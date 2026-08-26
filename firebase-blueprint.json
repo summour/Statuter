@@ -1,0 +1,71 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User account profile and sync metadata",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "lastLoginAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "email"]
+    },
+    "UserDeck": {
+      "title": "UserDeck",
+      "description": "A law deck owned by a user",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "shortName": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "color": { "type": "string" },
+        "icon": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "totalSections": { "type": "number" },
+        "isCustom": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "category"]
+    },
+    "UserCard": {
+      "title": "UserCard",
+      "description": "A law card belonging to a user deck",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "deckId": { "type": "string" },
+        "deckName": { "type": "string" },
+        "deckShortName": { "type": "string" },
+        "sectionNumber": { "type": "string" },
+        "sectionRawNum": { "type": "number" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "keywords": { "type": "array", "items": { "type": "string" } },
+        "importantNote": { "type": "string" },
+        "isStarred": { "type": "boolean" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "deckId", "sectionNumber", "content"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "User profile document"
+    },
+    "/users/{userId}/decks/{deckId}": {
+      "schema": "UserDeck",
+      "description": "User custom law decks"
+    },
+    "/users/{userId}/cards/{cardId}": {
+      "schema": "UserCard",
+      "description": "User law cards"
+    }
+  }
+}
