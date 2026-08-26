@@ -23,7 +23,7 @@ import {
   Check
 } from 'lucide-react';
 import { LawDeck, LawCard, ParsedLawSection, ImportAuditReport } from '../types';
-import { parseThaiLawText, extractParagraphs } from '../utils/thaiLawParser';
+import { parseThaiLawText, extractParagraphs, stripFootnotes } from '../utils/thaiLawParser';
 import { SAMPLE_CIVIL_CODE_TEXT } from '../data/sampleLawText';
 
 interface ImportLawModalProps {
@@ -53,6 +53,7 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
   const [isParsing, setIsParsing] = useState<boolean>(false);
   const [auditReport, setAuditReport] = useState<ImportAuditReport | null>(null);
   const [filterAmendingActs, setFilterAmendingActs] = useState<boolean>(true);
+  const [filterFootnotes, setFilterFootnotes] = useState<boolean>(true);
   const [viewParagraphsMode, setViewParagraphsMode] = useState<'structured' | 'raw'>('structured');
   const [excludeRepealedSections, setExcludeRepealedSections] = useState<boolean>(false);
   const [importOnlyPrimarySections, setImportOnlyPrimarySections] = useState<boolean>(false);
@@ -75,8 +76,15 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
   // File input ref
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Selected target deck
-  const selectedDeck = decks.find(d => d.id === targetDeckId) || decks[0];
+  // Selected target deck or fallback dynamically created deck
+  const selectedDeck: LawDeck = decks.find(d => d.id === targetDeckId) || decks[0] || {
+    id: `deck-${Date.now()}`,
+    name: auditReport?.lawNameDetected || 'สำรับกฎหมายนำเข้า',
+    shortName: auditReport?.lawNameDetected ? auditReport.lawNameDetected.substring(0, 10) : 'กฎหมาย',
+    category: 'code',
+    categoryLabel: 'ประมวลกฎหมาย',
+    iconName: 'Scale',
+  };
 
   // Handle file drop / selection
   const handleFileUpload = (file: File) => {
@@ -92,11 +100,12 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
   };
 
   // Run parser
-  const handleStartParsing = (customFilterAmending?: boolean) => {
+  const handleStartParsing = (customFilterAmending?: boolean, customFilterFootnotes?: boolean) => {
     if (!rawText.trim()) return;
     setIsParsing(true);
 
     const shouldFilter = customFilterAmending !== undefined ? customFilterAmending : filterAmendingActs;
+    const shouldFilterFn = customFilterFootnotes !== undefined ? customFilterFootnotes : filterFootnotes;
 
     setTimeout(() => {
       try {
@@ -104,6 +113,7 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
           existingCards,
           targetDeckId,
           filterAmendingActs: shouldFilter,
+          filterFootnotes: shouldFilterFn,
         });
         setAuditReport(report);
         setStagedSections(report.sections);
@@ -155,9 +165,13 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
 
   // Update a staged section after user edits it
   const handleSaveSectionEdit = (updated: ParsedLawSection) => {
-    const freshParagraphs = extractParagraphs(updated.fullText);
+    const cleanedText = filterFootnotes ? stripFootnotes(updated.fullText) : updated.fullText;
+    const cleanedSecNum = filterFootnotes ? stripFootnotes(updated.sectionNumber) : updated.sectionNumber;
+    const freshParagraphs = extractParagraphs(cleanedText, filterFootnotes);
     setStagedSections(prev => prev.map(s => s.tempId === updated.tempId ? { 
       ...updated, 
+      sectionNumber: cleanedSecNum,
+      fullText: cleanedText,
       paragraphs: freshParagraphs,
       isResolved: true, 
       status: 'valid',
@@ -320,25 +334,31 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
                   เลือกสำรับกฎหมายเป้าหมายที่จะนำเข้า (Target Legal Deck)
                 </label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {decks.map(deck => (
-                    <div
-                      key={deck.id}
-                      onClick={() => setTargetDeckId(deck.id)}
-                      className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                        targetDeckId === deck.id
-                          ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
-                          : 'border-zinc-200 bg-zinc-50/50 hover:bg-zinc-100/80 text-zinc-800'
-                      }`}
-                    >
-                      <div>
-                        <div className="font-semibold text-xs">{deck.name}</div>
-                        <div className={`text-[11px] ${targetDeckId === deck.id ? 'text-zinc-300' : 'text-zinc-500'}`}>
-                          {deck.shortName} • {deck.categoryLabel}
-                        </div>
-                      </div>
-                      {targetDeckId === deck.id && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                  {decks.length === 0 ? (
+                    <div className="col-span-full p-3 rounded-xl bg-zinc-50 border border-zinc-200 text-xs text-zinc-600">
+                      ✨ ระบบจะสร้างสำรับใหม่อัตโนมัติจากชื่อกฎหมายที่ตรวจพบในเนื้อหา
                     </div>
-                  ))}
+                  ) : (
+                    decks.map(deck => (
+                      <div
+                        key={deck.id}
+                        onClick={() => setTargetDeckId(deck.id)}
+                        className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                          targetDeckId === deck.id
+                            ? 'border-zinc-900 bg-zinc-900 text-white shadow-sm'
+                            : 'border-zinc-200 bg-zinc-50/50 hover:bg-zinc-100/80 text-zinc-800'
+                        }`}
+                      >
+                        <div>
+                          <div className="font-semibold text-xs">{deck.name}</div>
+                          <div className={`text-[11px] ${targetDeckId === deck.id ? 'text-zinc-300' : 'text-zinc-500'}`}>
+                            {deck.shortName} • {deck.categoryLabel}
+                          </div>
+                        </div>
+                        {targetDeckId === deck.id && <CheckCircle2 className="w-4 h-4 text-emerald-400" />}
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -409,23 +429,45 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
                 />
               </div>
 
-              {/* Smart Law Filtering Option */}
-              <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3.5 flex items-start gap-3">
-                <input
-                  type="checkbox"
-                  id="filter-amending-checkbox"
-                  checked={filterAmendingActs}
-                  onChange={(e) => setFilterAmendingActs(e.target.checked)}
-                  className="mt-0.5 w-4 h-4 rounded text-zinc-900 focus:ring-zinc-900 cursor-pointer"
-                />
-                <label htmlFor="filter-amending-checkbox" className="text-xs text-zinc-800 cursor-pointer">
-                  <span className="font-bold text-zinc-900 block">
-                    นำเข้าเฉพาะตัวบทกฎหมายหลัก (ตัด พ.ร.บ. แก้ไขเพิ่มเติมและเชิงอรรถท้ายเล่มออกอัตโนมัติ)
-                  </span>
-                  <span className="text-[11px] text-zinc-600 block mt-0.5">
-                    แนะนำเปิดไว้เสมอสำหรับการนำเข้าตัวบทหลัก (เช่น มาตรา ๑ - ๑๗๕๕) เพื่อป้องกันเลขมาตราซ้ำซ้อนจาก พ.ร.บ. แก้ไขเพิ่มเติมท้ายฉบับ
-                  </span>
-                </label>
+              {/* Smart Law Filtering Options */}
+              <div className="space-y-2.5">
+                {/* Filter Footnotes Option */}
+                <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-3.5 flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="filter-footnotes-checkbox"
+                    checked={filterFootnotes}
+                    onChange={(e) => setFilterFootnotes(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-zinc-900 focus:ring-zinc-900 cursor-pointer"
+                  />
+                  <label htmlFor="filter-footnotes-checkbox" className="text-xs text-zinc-800 cursor-pointer">
+                    <span className="font-bold text-zinc-900 block flex items-center gap-1.5">
+                      <span>✨</span> กรองเอาเชิงอรรถออก เช่น [1], [2], [๕๓] (แนะนำ)
+                    </span>
+                    <span className="text-[11px] text-zinc-600 block mt-0.5">
+                      ตัดเครื่องหมายเชิงอรรถในวงเล็บเหลี่ยม [...] และข้อความอ้างอิงประวัติการแก้ไขออก เพื่อให้ตัวบทกฎหมายสะอาด กระชับ พร้อมสำหรับการท่องจำ
+                    </span>
+                  </label>
+                </div>
+
+                {/* Filter Amending Acts Option */}
+                <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-3.5 flex items-start gap-3">
+                  <input
+                    type="checkbox"
+                    id="filter-amending-checkbox"
+                    checked={filterAmendingActs}
+                    onChange={(e) => setFilterAmendingActs(e.target.checked)}
+                    className="mt-0.5 w-4 h-4 rounded text-zinc-900 focus:ring-zinc-900 cursor-pointer"
+                  />
+                  <label htmlFor="filter-amending-checkbox" className="text-xs text-zinc-800 cursor-pointer">
+                    <span className="font-bold text-zinc-900 block">
+                      นำเข้าเฉพาะตัวบทกฎหมายหลัก (ตัด พ.ร.บ. แก้ไขเพิ่มเติมและเชิงอรรถท้ายเล่มออกอัตโนมัติ)
+                    </span>
+                    <span className="text-[11px] text-zinc-600 block mt-0.5">
+                      แนะนำเปิดไว้เสมอสำหรับการนำเข้าตัวบทหลัก (เช่น มาตรา ๑ - ๑๗๕๕) เพื่อป้องกันเลขมาตราซ้ำซ้อนจาก พ.ร.บ. แก้ไขเพิ่มเติมท้ายฉบับ
+                    </span>
+                  </label>
+                </div>
               </div>
 
               {/* Parse Action Button */}
@@ -433,7 +475,7 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
                 <button
                   id="start-parsing-btn"
                   disabled={!rawText.trim() || isParsing}
-                  onClick={() => handleStartParsing(filterAmendingActs)}
+                  onClick={() => handleStartParsing(filterAmendingActs, filterFootnotes)}
                   className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-xs text-white shadow-sm transition-all cursor-pointer ${
                     !rawText.trim() || isParsing
                       ? 'bg-zinc-300 cursor-not-allowed'
@@ -443,7 +485,7 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
                   {isParsing ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      กำลังแยกโครงสร้างกฎหมายและวรรค/อนุ...
+                      กำลังแยกโครงสร้างกฎหมายและกรองเชิงอรรถ...
                     </>
                   ) : (
                     <>
@@ -472,6 +514,11 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
                     <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-700 border border-zinc-200">
                       เป้าหมาย: {selectedDeck.name}
                     </span>
+                    {auditReport.footnotesCleanedCount !== undefined && auditReport.footnotesCleanedCount > 0 && (
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200 flex items-center gap-1">
+                        <span>✨</span> กรองเชิงอรรถออก {auditReport.footnotesCleanedCount} จุด
+                      </span>
+                    )}
                     <span className="text-xs text-zinc-500">
                       ขนาดข้อมูล: {(auditReport.rawTextLength / 1024).toFixed(1)} KB • วันที่: {new Date(auditReport.parsedAt).toLocaleTimeString('th-TH')}
                     </span>

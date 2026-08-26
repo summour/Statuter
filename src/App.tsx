@@ -151,6 +151,14 @@ export function App() {
     targetDeck: LawDeck, 
     duplicateAction: 'replace' | 'skip' | 'keep-both'
   ) => {
+    // Ensure targetDeck exists in decks
+    setDecks(prevDecks => {
+      if (!prevDecks.some(d => d.id === targetDeck.id)) {
+        return [...prevDecks, targetDeck];
+      }
+      return prevDecks;
+    });
+
     setCards(prevCards => {
       let updatedList = [...prevCards];
 
@@ -205,11 +213,10 @@ export function App() {
 
   // Reset to default cards & decks
   const handleResetData = useCallback(() => {
-    const defaultDecks = LAW_DECKS.map(d => ({ ...d, isDefault: true }));
-    setDecks(defaultDecks);
-    saveStoredDecks(defaultDecks);
-    setCards(INITIAL_LAW_CARDS);
-    saveStoredCards(INITIAL_LAW_CARDS);
+    setDecks([]);
+    saveStoredDecks([]);
+    setCards([]);
+    saveStoredCards([]);
     setSelectedDeck(null);
     setActiveCardId(undefined);
   }, []);

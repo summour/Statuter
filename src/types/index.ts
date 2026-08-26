@@ -75,6 +75,7 @@ export interface ImportAuditReport {
   primaryCount: number;       // เช่น 1,755 มาตราหลัก
   insertedCount: number;      // เช่น 94 มาตราแทรก (/ หรือ ทวิ/ตรี...)
   repealedCount: number;      // จำนวนมาตราที่ถูกยกเลิกแล้ว
+  footnotesCleanedCount?: number; // จำนวนเชิงอรรถที่ตัดออกไป
   lawNameDetected: string;
   bookBreakdown: { name: string; count: number }[];
   sections: ParsedLawSection[];

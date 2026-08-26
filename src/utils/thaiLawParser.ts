@@ -84,8 +84,30 @@ function matchHierarchy(line: string, nextLine?: string): HierarchyMatch | null 
   return null;
 }
 
+// Strip footnote reference markers like [1], [2], [๑], [๒], [53], [เชิงอรรถ 1]
+export function stripFootnotes(text: string): string {
+  if (!text) return '';
+  return text
+    // Remove bracketed footnote numbers like [1], [2], [10], [๑], [๒], [๑๐], [เชิงอรรถ: 1]
+    .replace(/\[\s*(?:เชิงอรรถ\s*[:：]?\s*)?[0-9\u0E50-\u0E59a-zA-Z]+(?:\/[0-9\u0E50-\u0E59a-zA-Z]+)?\s*\]/gu, '')
+    // Clean up excessive horizontal whitespace left after footnote removal
+    .replace(/[ \t]{2,}/g, ' ')
+    .trim();
+}
+
+// Check if a line is a footnote definition line (e.g. "[1] ราชกิจจานุเบกษา...", "[2] แก้ไขเพิ่มเติมโดย...")
+export function isFootnoteDefinitionLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return (
+    /^\s*\[\s*[0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?\s*\]\s*(?:ราชกิจจานุเบกษา|แก้ไขเพิ่มเติม|ยกเลิก|ความเดิม|ความใน|เพิ่มเติม|พระราชบัญญัติ|พ\.ร\.บ\.|ประกาศ|ดู|หมายเหตุ|เหตุผล)/u.test(trimmed) ||
+    /^\s*\[\s*[0-9\u0E50-\u0E59]+\s*\]\s*[\s\S]*$/u.test(trimmed) ||
+    /^\s*(?:เชิงอรรถ|หมายเหตุ\s*:-?)\s*[\s\S]*$/u.test(trimmed)
+  );
+}
+
 // Regex to identify starting line of section: e.g. "มาตรา ๑", "มาตรา 193/1", "มาตรา ๑๐๙๖ ทวิ[53]"
-const SECTION_START_REGEX = /^[\s\t]*(มาตรา\s*([0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?(?:\s*(?:ทวิ|ตรี|จัตวา|เบญจ|ฉ|สัตต|อัฏฐ|นว|ทศ))?))(?:\[(\d+)\])?\s*([\s\S]*)$/u;
+const SECTION_START_REGEX = /^[\s\t]*(มาตรา\s*([0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?(?:\s*(?:ทวิ|ตรี|จัตวา|เบญจ|ฉ|สัตต|อัฏฐ|นว|ทศ))?))(?:\s*\[[0-9\u0E50-\u0E59a-zA-Z\s]+\])?\s*([\s\S]*)$/u;
 
 export function isSectionHeader(line: string): boolean {
   return SECTION_START_REGEX.test(line.trim());
@@ -95,15 +117,16 @@ export function isSectionHeader(line: string): boolean {
 export function isEndMatterHeader(line: string): boolean {
   const trimmed = line.trim();
   return (
-    /^(?:พระราชบัญญัติแก้ไขเพิ่มเติม|พระราชบัญญัติให้ใช้|พระราชกำหนด|ประกาศคณะปฏิวัติ|เชิงอรรถ|หมายเหตุ\s*:-|\[\d+\]\s*ราชกิจจานุเบกษา)/u.test(trimmed)
+    /^(?:พระราชบัญญัติแก้ไขเพิ่มเติม|พระราชบัญญัติให้ใช้|พระราชกำหนด|ประกาศคณะปฏิวัติ|เชิงอรรถ|หมายเหตุ\s*:-|\[[0-9\u0E50-\u0E59]+\]\s*(?:ราชกิจจานุเบกษา|แก้ไข|ยกเลิก|ความเดิม|พระราช|พ\.ร\.บ\.))/u.test(trimmed)
   );
 }
 
 // Extract paragraphs (วรรค / อนุมาตรา) accurately from verbatim section text
-export function extractParagraphs(fullText: string): LawParagraph[] {
+export function extractParagraphs(fullText: string, shouldFilterFootnotes = true): LawParagraph[] {
   if (!fullText || !fullText.trim()) return [];
 
-  const rawLines = fullText.split('\n');
+  const cleanedText = shouldFilterFootnotes ? stripFootnotes(fullText) : fullText;
+  const rawLines = cleanedText.split('\n');
   const paragraphs: LawParagraph[] = [];
   const thaiOrdinalWords = [
     'วรรคหนึ่ง', 'วรรคสอง', 'วรรคสาม', 'วรรคสี่', 'วรรคห้า',
@@ -121,10 +144,11 @@ export function extractParagraphs(fullText: string): LawParagraph[] {
   const flush = () => {
     if (currentLabel && currentTextLines.length > 0) {
       const combinedText = currentTextLines.join(' ').replace(/\s+/g, ' ').trim();
-      if (combinedText) {
+      const finalText = shouldFilterFootnotes ? stripFootnotes(combinedText) : combinedText;
+      if (finalText) {
         paragraphs.push({
           label: currentLabel,
-          text: combinedText,
+          text: finalText,
         });
       }
       currentLabel = '';
@@ -134,10 +158,10 @@ export function extractParagraphs(fullText: string): LawParagraph[] {
 
   for (let i = 0; i < rawLines.length; i++) {
     const raw = rawLines[i];
-    const trimmed = raw.trim();
+    const trimmed = shouldFilterFootnotes ? stripFootnotes(raw).trim() : raw.trim();
 
-    if (!trimmed) {
-      // Empty line signals explicit separation
+    if (!trimmed || (shouldFilterFootnotes && isFootnoteDefinitionLine(trimmed))) {
+      // Empty line signals explicit separation or skipped footnote line
       flush();
       continue;
     }
@@ -175,6 +199,7 @@ export interface ParseOptions {
   existingCards?: LawCard[];
   targetDeckId?: string;
   filterAmendingActs?: boolean; // Default true: filters out amending acts & footnotes from main law stream
+  filterFootnotes?: boolean;   // Default true: filters out [1], [2], [53] footnote tags and annotations
 }
 
 /**
@@ -187,8 +212,17 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
   const sections: ParsedLawSection[] = [];
   const existingCards = options.existingCards || [];
   const shouldFilterAmendingActs = options.filterAmendingActs !== false;
+  const shouldFilterFootnotes = options.filterFootnotes !== false;
 
-  let currentLawName = 'ประมวลกฎหมายแพ่งและพาณิชย์';
+  let footnotesRemovedCount = 0;
+
+  // Pre-calculate footnote count in original text if filtering
+  if (shouldFilterFootnotes) {
+    const footnoteMatches = rawText.match(/\[\s*(?:เชิงอรรถ\s*[:：]?\s*)?[0-9\u0E50-\u0E59a-zA-Z]+(?:\/[0-9\u0E50-\u0E59a-zA-Z]+)?\s*\]/gu);
+    footnotesRemovedCount = footnoteMatches ? footnoteMatches.length : 0;
+  }
+
+  let currentLawName = 'ประมวลกฎหมาย';
   let currentBook = '';
   let currentTitleStructure = '';
   let currentChapter = '';
@@ -198,7 +232,6 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
   let currentSectionRawNum = 0;
   let currentSectionLines: string[] = [];
   let currentStartLine = 1;
-  let currentFootnoteTag = '';
   let insideEndMatter = false;
 
   const seenSectionNumbers = new Set<string>();
@@ -208,24 +241,37 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
   const commitSection = () => {
     if (!currentSectionNumber) return;
 
+    // Filter footnote definition lines if enabled
+    let sectionLinesToProcess = currentSectionLines;
+    if (shouldFilterFootnotes) {
+      sectionLinesToProcess = sectionLinesToProcess.filter(l => !isFootnoteDefinitionLine(l));
+    }
+
     // Join verbatim text preserving original structure
-    const rawFullText = currentSectionLines.join('\n').trim();
+    let processedFullText = sectionLinesToProcess.join('\n').trim();
+    if (shouldFilterFootnotes) {
+      processedFullText = stripFootnotes(processedFullText);
+    }
+
+    const cleanSecNum = shouldFilterFootnotes 
+      ? stripFootnotes(currentSectionNumber).trim() 
+      : currentSectionNumber.trim();
 
     // Check uncertainty & errors
     let status: ParsedLawSection['status'] = 'valid';
     let uncertaintyReason: string | undefined;
     let errorDetail: string | undefined;
 
-    const isInserted = /[\/]|ทวิ|ตรี|จัตวา|เบญจ|ฉ|สัตต|อัฏฐ|นว|ทศ/u.test(currentSectionNumber);
-    const isRepealed = rawFullText.includes('(ยกเลิก)') || rawFullText.includes('ยกเลิกโดย') || rawFullText.includes('[ยกเลิก]') || rawFullText.trim() === '(ยกเลิก)' || rawFullText.trim() === 'ยกเลิก';
+    const isInserted = /[\/]|ทวิ|ตรี|จัตวา|เบญจ|ฉ|สัตต|อัฏฐ|นว|ทศ/u.test(cleanSecNum);
+    const isRepealed = processedFullText.includes('(ยกเลิก)') || processedFullText.includes('ยกเลิกโดย') || processedFullText.includes('[ยกเลิก]') || processedFullText.trim() === '(ยกเลิก)' || processedFullText.trim() === 'ยกเลิก';
     const isPrimarySection = !isInserted;
 
-    const isEmpty = rawFullText.length === 0;
-    const isVeryShort = rawFullText.length < 5 && !isRepealed;
-    const hasUnclosedBracket = (rawFullText.match(/\[/g) || []).length !== (rawFullText.match(/\]/g) || []).length;
+    const isEmpty = processedFullText.length === 0;
+    const isVeryShort = processedFullText.length < 5 && !isRepealed;
+    const hasUnclosedBracket = (processedFullText.match(/\[/g) || []).length !== (processedFullText.match(/\]/g) || []).length;
     
     // Check duplication with file itself
-    const normalizedSecNum = thaiToArabicDigits(currentSectionNumber).replace(/\s+/g, '');
+    const normalizedSecNum = thaiToArabicDigits(cleanSecNum).replace(/\s+/g, '');
     const isDuplicateInFile = duplicateSectionNumbers.has(normalizedSecNum);
 
     // Check duplicate with existing database
@@ -255,29 +301,29 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
       uncertaintyReason = `พบมาตรานี้มีอยู่แล้วในฐานข้อมูล (${existingMatch.deckShortName || existingMatch.deckName})`;
     }
 
-    const paragraphs = extractParagraphs(rawFullText);
+    const paragraphs = extractParagraphs(processedFullText, shouldFilterFootnotes);
 
     // Auto-detect short title if first line is in quotes or has pattern
     let extractedTitle: string | undefined;
-    const firstLine = currentSectionLines[0] || '';
+    const firstLine = sectionLinesToProcess[0] || '';
     const quoteMatch = firstLine.match(/คำว่า\s*[“"']([^”"']+)["'”]/);
     if (quoteMatch) {
       extractedTitle = quoteMatch[1];
-    } else if (rawFullText.includes('หมายความว่า')) {
-      const defMatch = rawFullText.match(/^([^\s]+)\s+หมายความว่า/);
+    } else if (processedFullText.includes('หมายความว่า')) {
+      const defMatch = processedFullText.match(/^([^\s]+)\s+หมายความว่า/);
       if (defMatch) extractedTitle = defMatch[1];
     }
 
     const parsedSec: ParsedLawSection = {
       tempId: `sec_${Date.now()}_${sections.length + 1}_${Math.random().toString(36).substring(2, 7)}`,
-      sectionNumber: currentSectionNumber + (currentFootnoteTag ? ` ${currentFootnoteTag}` : ''),
+      sectionNumber: cleanSecNum,
       sectionRawNum: currentSectionRawNum,
       book: currentBook || undefined,
       titleStructure: currentTitleStructure || undefined,
       chapter: currentChapter || undefined,
       part: currentPart || undefined,
       title: extractedTitle,
-      fullText: rawFullText,
+      fullText: processedFullText,
       paragraphs,
       status,
       uncertaintyReason,
@@ -297,7 +343,6 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
     currentSectionNumber = '';
     currentSectionRawNum = 0;
     currentSectionLines = [];
-    currentFootnoteTag = '';
   };
 
   // Pre-scan to identify duplicate section numbers in file (ignoring end-matter if filtered)
@@ -311,7 +356,8 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
     if (SECTION_START_REGEX.test(trimmed)) {
       const match = trimmed.match(SECTION_START_REGEX);
       if (match) {
-        const secNum = match[1].trim();
+        const rawSec = match[1].trim();
+        const secNum = shouldFilterFootnotes ? stripFootnotes(rawSec).trim() : rawSec;
         const norm = thaiToArabicDigits(secNum).replace(/\s+/g, '');
         if (seenSectionNumbers.has(norm)) {
           duplicateSectionNumbers.add(norm);
@@ -351,6 +397,12 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
       continue;
     }
 
+    // Skip footnote definition lines if enabled
+    if (shouldFilterFootnotes && isFootnoteDefinitionLine(trimmedLine)) {
+      i++;
+      continue;
+    }
+
     // Check for Section Header: "มาตรา ๑..."
     const secMatch = trimmedLine.match(SECTION_START_REGEX);
     if (secMatch) {
@@ -358,13 +410,16 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
       commitSection();
 
       currentStartLine = i + 1;
-      currentSectionNumber = secMatch[1].trim();
+      const capturedSec = secMatch[1].trim();
+      currentSectionNumber = shouldFilterFootnotes ? stripFootnotes(capturedSec).trim() : capturedSec;
       currentSectionRawNum = parseRawSectionNumber(secMatch[2].trim());
-      currentFootnoteTag = secMatch[3] || '';
 
-      const inlineText = (secMatch[4] || '').trim();
+      const inlineText = (secMatch[3] || '').trim();
       if (inlineText) {
-        currentSectionLines.push(inlineText);
+        const cleanedInline = shouldFilterFootnotes ? stripFootnotes(inlineText).trim() : inlineText;
+        if (cleanedInline) {
+          currentSectionLines.push(cleanedInline);
+        }
       }
       i++;
       continue;
@@ -413,7 +468,10 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
 
     // Otherwise, this line is part of the current active section body
     if (currentSectionNumber) {
-      currentSectionLines.push(trimmedLine);
+      const lineToAdd = shouldFilterFootnotes ? stripFootnotes(trimmedLine) : trimmedLine;
+      if (lineToAdd) {
+        currentSectionLines.push(lineToAdd);
+      }
     } else {
       // Stray line before any section (e.g. intro or royal decrees notice)
       if (trimmedLine.startsWith('กฎหมายนี้ให้เรียกว่า') || trimmedLine.includes('ประมวลกฎหมาย')) {
@@ -457,6 +515,7 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
     primaryCount,
     insertedCount,
     repealedCount,
+    footnotesCleanedCount: footnotesRemovedCount,
     lawNameDetected: currentLawName,
     bookBreakdown,
     sections,

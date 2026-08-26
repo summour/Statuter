@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LawDeck, LawCard, LawParagraph } from '../types';
+import { stripFootnotes } from '../utils/thaiLawParser';
 import { X, Plus, BookOpen } from 'lucide-react';
 
 interface AddSectionModalProps {
@@ -36,16 +37,24 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!sectionNumber.trim() || !fullText.trim()) {
+    const selectedDeck = decks.find(d => d.id === deckId) || decks[0];
+    if (!selectedDeck) {
+      alert('กรุณาสร้างสำรับกฎหมายก่อนเพิ่มมาตรา');
+      return;
+    }
+
+    const cleanSecInput = stripFootnotes(sectionNumber).trim();
+    const cleanFullTextInput = stripFootnotes(fullText).trim();
+
+    if (!cleanSecInput || !cleanFullTextInput) {
       alert('กรุณากรอกเลขมาตราและตัวบทกฎหมาย');
       return;
     }
 
-    const selectedDeck = decks.find(d => d.id === deckId) || decks[0];
-    const rawNum = parseInt(sectionNumber.replace(/\D/g, ''), 10) || 999;
+    const rawNum = parseInt(cleanSecInput.replace(/\D/g, ''), 10) || 999;
 
     // Parse paragraphs automatically if there are blank lines or paragraph markers
-    const textLines = fullText.split('\n\n').map(t => t.trim()).filter(Boolean);
+    const textLines = cleanFullTextInput.split('\n\n').map(t => t.trim()).filter(Boolean);
     let parsedParagraphs: LawParagraph[] | undefined = undefined;
 
     if (textLines.length > 1) {
@@ -65,6 +74,8 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
       });
     }
 
+    const formattedSecNum = cleanSecInput.startsWith('มาตรา') ? cleanSecInput : `มาตรา ${cleanSecInput}`;
+
     const newCard: LawCard = {
       id: `custom-${Date.now()}`,
       deckId: selectedDeck.id,
@@ -74,10 +85,10 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
       titleStructure: titleStructure.trim() || undefined,
       chapter: chapter.trim() || undefined,
       part: part.trim() || undefined,
-      sectionNumber: sectionNumber.startsWith('มาตรา') ? sectionNumber.trim() : `มาตรา ${sectionNumber.trim()}`,
+      sectionNumber: formattedSecNum,
       sectionRawNum: rawNum,
       title: title.trim() || undefined,
-      fullText: fullText.trim(),
+      fullText: cleanFullTextInput,
       paragraphs: parsedParagraphs,
     };
 

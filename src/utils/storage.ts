@@ -1,22 +1,22 @@
 import { LawCard, LawDeck } from '../types';
 import { LAW_DECKS, INITIAL_LAW_CARDS } from '../data/defaultDecks';
 
-const CARDS_STORAGE_KEY = 'law_library_cards_v3';
-const DECKS_STORAGE_KEY = 'law_library_decks_v3';
+const CARDS_STORAGE_KEY = 'law_library_cards_v4';
+const DECKS_STORAGE_KEY = 'law_library_decks_v4';
 
 export function loadStoredDecks(): LawDeck[] {
   try {
     const data = localStorage.getItem(DECKS_STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
   } catch (e) {
     console.error('Failed to load decks from storage', e);
   }
-  return LAW_DECKS.map(d => ({ ...d, isDefault: true }));
+  return [];
 }
 
 export function saveStoredDecks(decks: LawDeck[]): void {
@@ -32,14 +32,14 @@ export function loadStoredCards(): LawCard[] {
     const data = localStorage.getItem(CARDS_STORAGE_KEY);
     if (data) {
       const parsed = JSON.parse(data);
-      if (Array.isArray(parsed) && parsed.length > 0) {
+      if (Array.isArray(parsed)) {
         return parsed;
       }
     }
   } catch (e) {
     console.error('Failed to load cards from storage', e);
   }
-  return INITIAL_LAW_CARDS;
+  return [];
 }
 
 export function saveStoredCards(cards: LawCard[]): void {
