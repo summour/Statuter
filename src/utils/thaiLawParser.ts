@@ -54,55 +54,106 @@ export function parseRawSectionNumber(secStr: string): number {
   return main + sub;
 }
 
-// Check if a line is a legal hierarchy header (บรรพ, ภาค, ลักษณะ, หมวด, ส่วนที่)
+// Check if a line is a legal hierarchy header (บรรพ, ภาค, ลักษณะ, หมวด, ส่วนที่, บทเฉพาะกาล)
 interface HierarchyMatch {
   type: 'law_title' | 'book' | 'titleStructure' | 'chapter' | 'part';
   fullLabel: string;
+}
+
+// Regex to identify starting line of section: e.g. "มาตรา ๑", "มาตรา 193/1", "มาตรา ๑๐๙๖ ทวิ[53]"
+const SECTION_START_REGEX = /^[\s\t]*(มาตรา\s*([0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?(?:\s*(?:ทวิ|ตรี|จัตวา|เบญจ|ฉ|สัตต|อัฏฐ|นว|ทศ))?))(?:\s*\[[0-9\u0E50-\u0E59a-zA-Z\s]+\])?\s*([\s\S]*)$/u;
+
+export function isSectionHeader(line: string): boolean {
+  return SECTION_START_REGEX.test(line.trim());
+}
+
+// Regex for standalone structural divisions in Thai law (e.g. บทเฉพาะกาล, บทกำหนดโทษ, บทเบ็ดเสร็จทั่วไป, บทบัญญัติทั่วไป)
+const STANDALONE_CHAPTER_REGEX = /^\(?\s*(บทเฉพาะกาล|บทเฉพาะการ|บทกำหนดโทษ|บทเบ็ดเสร็จทั่วไป|บทบัญญัติทั่วไป|บทส่งท้าย)\s*\)?(?:\s*[:：-])?(?:\s*\[[0-9\u0E50-\u0E59a-zA-Z\s]+\])?(?:\s*\(.*?\))?$/u;
+
+export function isStandaloneChapterHeader(line: string): boolean {
+  const trimmed = stripFootnotes(line.trim()).trim();
+  if (!trimmed) return false;
+  return STANDALONE_CHAPTER_REGEX.test(trimmed);
+}
+
+// Helper to check if a line is a major hierarchy prefix that starts a new structure
+function isMajorHierarchyPrefix(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+  return (
+    /^(?:บรรพ|ภาค)\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed) ||
+    /^ลักษณะ\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed) ||
+    /^หมวด\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed) ||
+    /^ส่วน(?:ที่)?\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed) ||
+    /^(?:ประมวลกฎหมาย|พระราชบัญญัติ|พระราชกำหนด|รัฐธรรมนูญแห่งราชอาณาจักรไทย)/u.test(trimmed)
+  );
 }
 
 function matchHierarchy(line: string, nextLine?: string): HierarchyMatch | null {
   const trimmed = line.trim();
   if (!trimmed) return null;
 
+  const cleanTrimmed = stripFootnotes(trimmed).trim();
+
   // 1. บรรพ / ภาค
   if (/^(?:บรรพ|ภาค)\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed)) {
-    let full = trimmed;
-    if (nextLine && nextLine.trim() && !matchHierarchy(nextLine) && !isSectionHeader(nextLine)) {
-      full = `${trimmed} ${nextLine.trim()}`;
+    let full = cleanTrimmed;
+    if (nextLine && nextLine.trim() && !isMajorHierarchyPrefix(nextLine) && !isSectionHeader(nextLine) && !isSignOffOrEndMatterLine(nextLine)) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
     }
     return { type: 'book', fullLabel: full };
   }
 
   // 2. ลักษณะ
   if (/^ลักษณะ\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed)) {
-    let full = trimmed;
-    if (nextLine && nextLine.trim() && !matchHierarchy(nextLine) && !isSectionHeader(nextLine)) {
-      full = `${trimmed} ${nextLine.trim()}`;
+    let full = cleanTrimmed;
+    if (nextLine && nextLine.trim() && !isMajorHierarchyPrefix(nextLine) && !isSectionHeader(nextLine) && !isSignOffOrEndMatterLine(nextLine)) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
     }
     return { type: 'titleStructure', fullLabel: full };
   }
 
-  // 3. หมวด
+  // 3. หมวด (รวมถึง หมวด ... บทเฉพาะกาล)
   if (/^หมวด\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed)) {
-    let full = trimmed;
-    if (nextLine && nextLine.trim() && !matchHierarchy(nextLine) && !isSectionHeader(nextLine)) {
-      full = `${trimmed} ${nextLine.trim()}`;
+    let full = cleanTrimmed;
+    if (nextLine && nextLine.trim() && !isMajorHierarchyPrefix(nextLine) && !isSectionHeader(nextLine) && !isSignOffOrEndMatterLine(nextLine)) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
     }
     return { type: 'chapter', fullLabel: full };
   }
 
   // 4. ส่วนที่ / ส่วน
   if (/^ส่วน(?:ที่)?\s*([0-9\u0E50-\u0E59]+|[^\n]+)/u.test(trimmed)) {
-    let full = trimmed;
-    if (nextLine && nextLine.trim() && !matchHierarchy(nextLine) && !isSectionHeader(nextLine)) {
-      full = `${trimmed} ${nextLine.trim()}`;
+    let full = cleanTrimmed;
+    if (nextLine && nextLine.trim() && !isMajorHierarchyPrefix(nextLine) && !isSectionHeader(nextLine) && !isSignOffOrEndMatterLine(nextLine)) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
     }
     return { type: 'part', fullLabel: full };
   }
 
-  // 5. Law Title in first few lines
-  if (/^(?:ประมวลกฎหมาย|พระราชบัญญัติ|พระราชกำหนด|รัฐธรรมนูญแห่งราชอาณาจักรไทย)/.test(trimmed)) {
-    return { type: 'law_title', fullLabel: trimmed };
+  // 5. บทเฉพาะกาล (Transitory Provisions) และบทพิเศษที่อยู่แยกเดี่ยว (Standalone Chapter)
+  if (STANDALONE_CHAPTER_REGEX.test(cleanTrimmed)) {
+    let full = cleanTrimmed;
+    if (
+      nextLine && 
+      nextLine.trim() && 
+      !isMajorHierarchyPrefix(nextLine) && 
+      !isSectionHeader(nextLine) && 
+      !isSignOffOrEndMatterLine(nextLine) &&
+      nextLine.trim().length < 60
+    ) {
+      full = `${cleanTrimmed} ${stripFootnotes(nextLine.trim()).trim()}`;
+    }
+    // Normalize typo "บทเฉพาะการ" -> "บทเฉพาะกาล"
+    if (full.startsWith('บทเฉพาะการ')) {
+      full = full.replace('บทเฉพาะการ', 'บทเฉพาะกาล');
+    }
+    return { type: 'chapter', fullLabel: full };
+  }
+
+  // 6. Law Title in first few lines
+  if (/^(?:ประมวลกฎหมาย|พระราชบัญญัติ|พระราชกำหนด|รัฐธรรมนูญแห่งราชอาณาจักรไทย)/u.test(trimmed)) {
+    return { type: 'law_title', fullLabel: cleanTrimmed };
   }
 
   return null;
@@ -128,13 +179,6 @@ export function isFootnoteDefinitionLine(line: string): boolean {
     /^\s*\[\s*[0-9\u0E50-\u0E59]+\s*\]\s*[\s\S]*$/u.test(trimmed) ||
     /^\s*(?:เชิงอรรถ|หมายเหตุ\s*:-?)\s*[\s\S]*$/u.test(trimmed)
   );
-}
-
-// Regex to identify starting line of section: e.g. "มาตรา ๑", "มาตรา 193/1", "มาตรา ๑๐๙๖ ทวิ[53]"
-const SECTION_START_REGEX = /^[\s\t]*(มาตรา\s*([0-9\u0E50-\u0E59]+(?:\/[0-9\u0E50-\u0E59]+)?(?:\s*(?:ทวิ|ตรี|จัตวา|เบญจ|ฉ|สัตต|อัฏฐ|นว|ทศ))?))(?:\s*\[[0-9\u0E50-\u0E59a-zA-Z\s]+\])?\s*([\s\S]*)$/u;
-
-export function isSectionHeader(line: string): boolean {
-  return SECTION_START_REGEX.test(line.trim());
 }
 
 // Identify end-matter headers: Footnotes, Amending Acts (พ.ร.บ. แก้ไขเพิ่มเติม), Sign-offs (ผู้รับสนองพระราชโองการ), etc.
@@ -560,11 +604,11 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
   // Commit last section
   commitSection();
 
-  // Calculate Breakdown by Book
+  // Calculate Breakdown by Book / Chapter Hierarchy Group
   const bookCountMap = new Map<string, number>();
   for (const sec of sections) {
-    const bookName = sec.book || 'บททั่วไป / ไม่ระบุบรรพ';
-    bookCountMap.set(bookName, (bookCountMap.get(bookName) || 0) + 1);
+    const groupName = sec.book || sec.titleStructure || sec.chapter || 'บททั่วไป / ไม่ระบุหมวด';
+    bookCountMap.set(groupName, (bookCountMap.get(groupName) || 0) + 1);
   }
 
   const bookBreakdown = Array.from(bookCountMap.entries()).map(([name, count]) => ({

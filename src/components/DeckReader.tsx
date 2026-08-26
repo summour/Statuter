@@ -363,7 +363,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   )}
                   {card.titleStructure && (
                     <>
-                      <span>›</span>
+                      {card.book && <span>›</span>}
                       <span className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md font-medium">
                         {formatNumeralText(card.titleStructure, numeralSystem)}
                       </span>
@@ -371,7 +371,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   )}
                   {card.chapter && (
                     <>
-                      <span>›</span>
+                      {(card.book || card.titleStructure) && <span>›</span>}
                       <span className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md font-medium">
                         {formatNumeralText(card.chapter, numeralSystem)}
                       </span>
@@ -379,7 +379,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                   )}
                   {card.part && (
                     <>
-                      <span>›</span>
+                      {(card.book || card.titleStructure || card.chapter) && <span>›</span>}
                       <span className="bg-zinc-100 text-zinc-700 px-2 py-0.5 rounded-md font-medium">
                         {formatNumeralText(card.part, numeralSystem)}
                       </span>
@@ -547,7 +547,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                 )}
                 {currentCard.titleStructure && (
                   <>
-                    <span className="text-zinc-400">›</span>
+                    {currentCard.book && <span className="text-zinc-400">›</span>}
                     <span className="bg-zinc-100/90 text-zinc-800 font-semibold px-2 py-0.5 rounded-md border border-zinc-200">
                       {formatNumeralText(currentCard.titleStructure, numeralSystem)}
                     </span>
@@ -555,7 +555,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                 )}
                 {currentCard.chapter && (
                   <>
-                    <span className="text-zinc-400">›</span>
+                    {(currentCard.book || currentCard.titleStructure) && <span className="text-zinc-400">›</span>}
                     <span className="bg-zinc-100/90 text-zinc-800 font-semibold px-2 py-0.5 rounded-md border border-zinc-200">
                       {formatNumeralText(currentCard.chapter, numeralSystem)}
                     </span>
@@ -563,7 +563,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                 )}
                 {currentCard.part && (
                   <>
-                    <span className="text-zinc-400">›</span>
+                    {(currentCard.book || currentCard.titleStructure || currentCard.chapter) && <span className="text-zinc-400">›</span>}
                     <span className="bg-zinc-100/90 text-zinc-800 font-semibold px-2 py-0.5 rounded-md border border-zinc-200">
                       {formatNumeralText(currentCard.part, numeralSystem)}
                     </span>

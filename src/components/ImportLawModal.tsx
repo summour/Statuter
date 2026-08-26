@@ -779,6 +779,18 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
                                 </span>
                               )}
 
+                              {sec.chapter && (
+                                <span className="text-[11px] px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 font-medium">
+                                  {sec.chapter}
+                                </span>
+                              )}
+
+                              {sec.part && (
+                                <span className="text-[11px] px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 font-medium hidden md:inline">
+                                  {sec.part}
+                                </span>
+                              )}
+
                               {sec.isInsertedSection ? (
                                 <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-700 border border-zinc-200">
                                   มาตราแทรก
