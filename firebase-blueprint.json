@@ -66,9 +66,52 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["deckId", "chunkIndex", "cards"]
+    },
+    "OfficialDeck": {
+      "title": "OfficialDeck",
+      "description": "An official verified law deck published by system admins in the global library",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "shortName": { "type": "string" },
+        "category": { "type": "string" },
+        "description": { "type": "string" },
+        "color": { "type": "string" },
+        "icon": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "totalSections": { "type": "number" },
+        "version": { "type": "string" },
+        "isPublished": { "type": "boolean" },
+        "author": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "name", "category", "isPublished"]
+    },
+    "OfficialCardChunk": {
+      "title": "OfficialCardChunk",
+      "description": "Chunked card storage for official law statutes in the global library",
+      "type": "object",
+      "properties": {
+        "deckId": { "type": "string" },
+        "chunkIndex": { "type": "number" },
+        "totalChunks": { "type": "number" },
+        "count": { "type": "number" },
+        "cards": { "type": "array" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["deckId", "chunkIndex", "cards"]
     }
   },
   "firestore": {
+    "/official_decks/{deckId}": {
+      "schema": "OfficialDeck",
+      "description": "Global official law decks published by admin"
+    },
+    "/official_decks/{deckId}/chunks/{chunkId}": {
+      "schema": "OfficialCardChunk",
+      "description": "Chunked cards of official law decks for high speed bulk loading"
+    },
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "User profile document"

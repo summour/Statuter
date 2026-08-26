@@ -27,6 +27,7 @@ interface DeckGridProps {
   onOpenDeleteDeck: (deck: LawDeck) => void;
   onOpenAddSectionToDeck: (deckId: string) => void;
   onOpenDeckManager: () => void;
+  onOpenOfficialLibrary?: () => void;
   numeralSystem?: NumeralSystem;
 }
 
@@ -41,6 +42,7 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
   onOpenDeleteDeck,
   onOpenAddSectionToDeck,
   onOpenDeckManager,
+  onOpenOfficialLibrary,
   numeralSystem = 'arabic',
 }) => {
   // Card count by deck
@@ -147,11 +149,42 @@ export const DeckGrid: React.FC<DeckGridProps> = ({
         </div>
       ) : (
         /* Regular Library Shelf View */
-        <div>
+        <div className="space-y-4">
           {/* Decks Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             
-            {/* Create New Deck Card */}
+            {/* 1. Official Library Hub Card */}
+            {onOpenOfficialLibrary && (
+              <div
+                id="official-library-shelf-card"
+                onClick={onOpenOfficialLibrary}
+                className="bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-transparent hover:from-amber-500/15 border border-amber-500/30 hover:border-amber-500/60 rounded-2xl p-5 transition-all cursor-pointer group flex flex-col justify-between min-h-[160px] shadow-2xs"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center font-bold">
+                      <BookOpen className="w-4 h-4" />
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-900 border border-amber-500/30">
+                      Official Library
+                    </span>
+                  </div>
+                  <h3 className="text-sm font-bold text-zinc-900 group-hover:text-amber-900 transition-colors leading-snug">
+                    คลังตัวบทมาตรฐาน
+                  </h3>
+                  <p className="text-xs text-zinc-600 mt-1 line-clamp-2">
+                    ดาวน์โหลดตัวบทกฎหมายทางการที่ตรวจทานแล้วเข้าสู่เครื่อง
+                  </p>
+                </div>
+
+                <div className="pt-3 border-t border-amber-500/20 flex items-center justify-between text-xs font-semibold text-amber-900">
+                  <span>เลือกฉบับติดตั้ง</span>
+                  <ArrowRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                </div>
+              </div>
+            )}
+
+            {/* 2. Create New Custom Deck Card */}
             <div
               onClick={onOpenCreateDeck}
               className="bg-white hover:bg-zinc-50 border border-dashed border-zinc-300 hover:border-zinc-900 rounded-2xl p-5 transition-all cursor-pointer group flex flex-col justify-center items-center text-center min-h-[160px]"

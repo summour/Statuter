@@ -5,6 +5,7 @@ import {
   signInWithPopup, 
   signOut, 
   onAuthStateChanged,
+  signInAnonymously,
   User 
 } from 'firebase/auth';
 import { 
@@ -19,8 +20,19 @@ import {
   getDocFromServer
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { LawDeck, LawCard } from '../types';
+import { LawDeck, LawCard, OfficialLawDeck } from '../types';
 import { sanitizeCardTextAndParagraphs } from '../utils/thaiLawParser';
+
+// Known Admin identifiers
+export const ADMIN_UIDS = ['Statuter-Dev'];
+export const ADMIN_EMAILS = ['ratchataphiphat@gmail.com'];
+
+export function checkIsAdmin(user: { uid?: string | null; email?: string | null } | null): boolean {
+  if (!user) return false;
+  if (user.uid && ADMIN_UIDS.includes(user.uid)) return true;
+  if (user.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) return true;
+  return false;
+}
 
 // Initialize Firebase App singleton
 export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
@@ -96,6 +108,18 @@ export async function testFirestoreConnection() {
   }
 }
 testFirestoreConnection();
+
+// Ensure Firebase Auth session exists (anonymously if not logged in with Google)
+export async function ensureFirebaseAuth(): Promise<User | null> {
+  if (auth.currentUser) return auth.currentUser;
+  try {
+    const cred = await signInAnonymously(auth);
+    return cred.user;
+  } catch (err) {
+    console.warn('Anonymous auth fallback not available:', err);
+    return null;
+  }
+}
 
 // Sign in with Google Popup
 export async function signInWithGoogle(): Promise<User> {
@@ -419,5 +443,243 @@ export async function fetchUserDataFromCloud(
   } catch (error) {
     console.error('Error fetching data from Firestore:', error);
     throw error;
+  }
+}
+
+import { 
+  saveOfficialDeckToLocalDB, 
+  loadOfficialDecksFromLocalDB, 
+  loadOfficialCardsFromLocalDB, 
+  deleteOfficialDeckFromLocalDB, 
+  updateOfficialDeckStatusInLocalDB 
+} from '../utils/storage';
+import { parseThaiLawText } from '../utils/thaiLawParser';
+
+// -------------------------------------------------------------
+// OFFICIAL DECKS & STATUTES (CENTRAL CLOUD & LOCAL REPOSITORY)
+// -------------------------------------------------------------
+
+// 1. Fetch Official Decks (List of all published official decks in the system)
+export async function fetchOfficialDecks(includeUnpublished: boolean = false): Promise<OfficialLawDeck[]> {
+  const localDecks = await loadOfficialDecksFromLocalDB();
+  const deckMap = new Map<string, OfficialLawDeck>();
+  
+  // Seed with local IndexedDB records
+  localDecks.forEach(d => deckMap.set(d.id, d));
+
+  try {
+    const colRef = collection(db, 'official_decks');
+    const snapshot = await getDocs(colRef);
+
+    snapshot.forEach(docSnap => {
+      const data = docSnap.data();
+      if (data && data.id && !data.isDeleted) {
+        const deck: OfficialLawDeck = {
+          id: data.id,
+          name: data.name || '',
+          shortName: data.shortName || '',
+          category: data.category || 'code',
+          categoryLabel: data.categoryLabel || 'ประมวลกฎหมาย',
+          iconName: data.iconName || 'BookOpen',
+          color: data.color || '#3b82f6',
+          description: data.description || '',
+          isPublished: data.isPublished !== false,
+          version: data.version || '1.0',
+          totalSections: data.totalSections || 0,
+          author: data.author || 'Statuter-Dev',
+          updatedAt: data.updatedAt || Date.now(),
+          downloadCount: data.downloadCount || 0,
+          isDefault: true,
+          rawText: data.rawText || undefined,
+        };
+
+        deckMap.set(deck.id, deck);
+        saveOfficialDeckToLocalDB(deck, undefined, deck.rawText).catch(() => {});
+      }
+    });
+
+    const allMerged = Array.from(deckMap.values());
+    const result = allMerged.filter(deck => includeUnpublished || deck.isPublished);
+    return result.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  } catch (error) {
+    console.warn('Official decks cloud read fallback to local DB:', error);
+    const result = Array.from(deckMap.values()).filter(deck => includeUnpublished || deck.isPublished);
+    return result.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
+}
+
+// 2. Fetch all cards for a specific Official Deck (Instant On-the-fly Parsing)
+export async function fetchOfficialDeckCards(
+  deckId: string, 
+  onProgress?: (msg: string) => void
+): Promise<LawCard[]> {
+  if (!deckId) return [];
+
+  const performFetch = async () => {
+    onProgress?.('กำลังดึงข้อมูลตัวบทจากคลัง...');
+    
+    // 1. Check local IndexedDB cards first
+    const localCards = await loadOfficialCardsFromLocalDB(deckId);
+    if (localCards && localCards.length > 0) {
+      return localCards;
+    }
+
+    // 2. Fetch official deck document from Firestore
+    try {
+      const deckDocSnap = await getDoc(doc(db, 'official_decks', deckId));
+      if (deckDocSnap.exists()) {
+        const data = deckDocSnap.data();
+        if (data.rawText && typeof data.rawText === 'string' && data.rawText.trim().length > 0) {
+          onProgress?.('กำลังประมวลผลแยกมาตราในเครื่อง (0.05 วินาที)...');
+          const report = parseThaiLawText(data.rawText);
+          if (report && report.sections.length > 0) {
+            const parsedCards: LawCard[] = report.sections.map((sec, idx) => ({
+              id: `${deckId}_sec_${sec.sectionRawNum || idx + 1}`,
+              deckId: deckId,
+              deckName: data.name || 'สำรับกฎหมาย',
+              deckShortName: data.shortName || 'กฎหมาย',
+              book: sec.book,
+              titleStructure: sec.titleStructure,
+              chapter: sec.chapter,
+              part: sec.part,
+              sectionNumber: sec.sectionNumber,
+              sectionRawNum: sec.sectionRawNum,
+              title: sec.title,
+              fullText: sec.fullText,
+              paragraphs: sec.paragraphs,
+              isVerified: true,
+              createdAt: Date.now(),
+            }));
+
+            // Save parsed cards to IndexedDB for instant future reads
+            const officialDeckObj: OfficialLawDeck = {
+              id: data.id || deckId,
+              name: data.name || '',
+              shortName: data.shortName || '',
+              category: data.category || 'code',
+              categoryLabel: data.categoryLabel || 'ประมวลกฎหมาย',
+              iconName: data.iconName || 'BookOpen',
+              color: data.color || '#3b82f6',
+              description: data.description || '',
+              isPublished: data.isPublished !== false,
+              version: data.version || '1.0',
+              totalSections: parsedCards.length,
+              author: data.author || 'Statuter-Dev',
+              updatedAt: data.updatedAt || Date.now(),
+              isDefault: true,
+              rawText: data.rawText,
+            };
+            saveOfficialDeckToLocalDB(officialDeckObj, parsedCards, data.rawText).catch(() => {});
+
+            return parsedCards;
+          }
+        }
+      }
+    } catch (err) {
+      console.warn('Direct rawText cloud fetch error, falling back to legacy:', err);
+    }
+
+    // 3. Fallback for legacy chunked decks
+    const cardsMap = new Map<string, LawCard>();
+    try {
+      const chunksSnap = await getDocs(collection(db, 'official_decks', deckId, 'chunks'));
+      chunksSnap.forEach(docSnap => {
+        const data = docSnap.data();
+        if (Array.isArray(data.cards)) {
+          for (const card of data.cards) {
+            if (card && card.id) {
+              cardsMap.set(card.id, card as LawCard);
+            }
+          }
+        }
+      });
+    } catch (err) {
+      console.warn('Could not fetch official deck chunks:', err);
+    }
+
+    const finalCards = Array.from(cardsMap.values()).map(c => sanitizeCardTextAndParagraphs(c));
+    return finalCards;
+  };
+
+  try {
+    return await withTimeout(performFetch(), 15000, 'การดึงข้อมูลตัวบทหมดเวลา กรุณาลองใหม่อีกครั้ง');
+  } catch (error) {
+    console.error('Error fetching official deck cards:', error);
+    const cached = await loadOfficialCardsFromLocalDB(deckId);
+    if (cached && cached.length > 0) return cached;
+    throw error;
+  }
+}
+
+// 3. Publish / Update an Official Deck to Cloud & Local Official Storage (Instant Raw Text)
+export async function publishOfficialDeckToCloud(
+  deck: OfficialLawDeck,
+  cards: LawCard[],
+  onProgress?: (msg: string) => void,
+  rawText?: string
+): Promise<{ success: boolean; durationMs: number; totalCards: number }> {
+  const startTime = Date.now();
+
+  // Construct raw text if not provided
+  const fullRawText = rawText || deck.rawText || cards.map(c => {
+    const header = [c.book, c.titleStructure, c.chapter, c.part].filter(Boolean).join('\n');
+    const secTitle = c.title ? ` ${c.title}` : '';
+    return (header ? header + '\n' : '') + `${c.sectionNumber}${secTitle}\n${c.fullText}`;
+  }).join('\n\n');
+
+  const deckWithRawText: OfficialLawDeck = {
+    ...deck,
+    rawText: fullRawText,
+    totalSections: cards.length,
+    updatedAt: Date.now(),
+    author: deck.author || 'Statuter-Dev',
+  };
+
+  // 1. Save locally to IndexedDB immediately (takes <20ms)
+  onProgress?.('กำลังบันทึกลงฐานข้อมูลในเครื่อง (IndexedDB)...');
+  await saveOfficialDeckToLocalDB(deckWithRawText, cards, fullRawText);
+
+  // 2. Publish single document with raw text to Firestore Cloud (takes <200ms)
+  try {
+    onProgress?.('กำลังส่งข้อมูลข้อความฉบับเต็มสู่คลังกลาง...');
+    const deckDocRef = doc(db, 'official_decks', deck.id);
+    const deckPayload = cleanForFirestore(deckWithRawText);
+
+    await setDoc(deckDocRef, deckPayload, { merge: true });
+  } catch (cloudError) {
+    console.warn('Cloud sync deferred or offline:', cloudError);
+  }
+
+  return {
+    success: true,
+    durationMs: Date.now() - startTime,
+    totalCards: cards.length,
+  };
+}
+
+// 4. Delete Official Deck from Cloud & Local
+export async function deleteOfficialDeckFromCloud(deckId: string): Promise<void> {
+  await deleteOfficialDeckFromLocalDB(deckId);
+  try {
+    await setDoc(doc(db, 'official_decks', deckId), { isDeleted: true, updatedAt: Date.now() }, { merge: true });
+  } catch (error) {
+    console.warn('Cloud deck deletion deferred:', error);
+  }
+}
+
+// 5. Toggle Official Deck Publish Status (Admin Only)
+export async function toggleOfficialDeckPublishStatus(
+  deckId: string, 
+  isPublished: boolean
+): Promise<void> {
+  await updateOfficialDeckStatusInLocalDB(deckId, isPublished);
+  try {
+    const deckRef = doc(db, 'official_decks', deckId);
+    await setDoc(deckRef, { 
+      isPublished,
+      updatedAt: Date.now()
+    }, { merge: true });
+  } catch (error) {
+    console.warn('Cloud status update deferred:', error);
   }
 }

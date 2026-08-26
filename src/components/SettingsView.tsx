@@ -8,7 +8,11 @@ import {
   CloudUpload,
   CloudDownload,
   Download,
-  Loader2
+  Loader2,
+  ShieldCheck,
+  KeyRound,
+  Sparkles,
+  ExternalLink
 } from 'lucide-react';
 import { LawDeck, LawCard } from '../types';
 import { exportAllDataToJson } from '../utils/storage';
@@ -20,6 +24,7 @@ interface SettingsViewProps {
   cards: LawCard[];
   onImportBackup: (importedDecks: LawDeck[], importedCards: LawCard[]) => void;
   onResetData: () => void;
+  onOpenAdminCMS?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
@@ -27,18 +32,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   cards,
   onImportBackup,
   onResetData,
+  onOpenAdminCMS,
 }) => {
-  const { user, loading: authLoading, signInGoogle, signOut } = useAuth();
+  const { 
+    user, 
+    loading: authLoading, 
+    signInGoogle, 
+    signOut,
+    isAdmin,
+    isDevAdmin,
+    adminIdentifier,
+    activateDevAdmin,
+    deactivateDevAdmin,
+  } = useAuth();
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
   const [authActionLoading, setAuthActionLoading] = useState(false);
+  const [adminKeyInput, setAdminKeyInput] = useState('');
+  const [showDevInput, setShowDevInput] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const showStatus = (msg: string) => {
     setStatusMsg(msg);
-    setTimeout(() => setStatusMsg(null), 4500);
+    setTimeout(() => setStatusMsg(null), 4000);
+  };
+
+  const handleDevKeySubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminKeyInput.trim()) return;
+    const success = activateDevAdmin(adminKeyInput);
+    if (success) {
+      showStatus('เปิดใช้งานสิทธิ์ Admin (UID: Statuter-Dev) สำเร็จแล้ว!');
+      setAdminKeyInput('');
+      setShowDevInput(false);
+    } else {
+      showStatus('รหัสผ่านหรือ UID ไม่ถูกต้อง (กรุณาใช้ Statuter-Dev)');
+    }
   };
 
   // Google Login Handler
@@ -294,6 +325,113 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   )}
                   <span>เข้าสู่ระบบด้วย Google</span>
                 </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Section: Admin CMS & Developer Zone */}
+        <div>
+          <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-1.5 flex items-center justify-between">
+            <span>ผู้ดูแลระบบ & ฐานข้อมูลกลาง</span>
+            {isAdmin && (
+              <span className="text-amber-600 font-bold text-[10px]">
+                UID: {adminIdentifier}
+              </span>
+            )}
+          </div>
+          <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-2xs overflow-hidden divide-y divide-zinc-100">
+            {isAdmin ? (
+              <div className="p-3.5 sm:p-4 space-y-3 bg-gradient-to-br from-amber-500/5 via-white to-transparent">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-800 flex items-center justify-center font-bold">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-zinc-900 flex items-center gap-1.5">
+                        <span>Admin In-App CMS</span>
+                        <span className="px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 text-[10px] font-mono font-bold">
+                          เปิดใช้งานแล้ว
+                        </span>
+                      </div>
+                      <div className="text-xs text-zinc-500">
+                        จัดการคลังตัวบทกฎหมายส่วนกลาง นำเข้า และเผยแพร่สู่ผู้ใช้
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex items-center gap-2">
+                  <button
+                    onClick={onOpenAdminCMS}
+                    className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-900 hover:bg-black text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4 text-amber-400" />
+                    <span>เปิดแผงควบคุม Admin CMS</span>
+                  </button>
+
+                  {isDevAdmin && (
+                    <button
+                      onClick={deactivateDevAdmin}
+                      className="px-3 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      ออก
+                    </button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="p-3.5 sm:p-4">
+                {!showDevInput ? (
+                  <button
+                    onClick={() => setShowDevInput(true)}
+                    className="w-full flex items-center justify-between text-left text-zinc-600 hover:text-zinc-900 cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-700 flex items-center justify-center">
+                        <KeyRound className="w-4 h-4" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-zinc-800">เข้าสู่ระบบแอดมิน (Admin UID / Key)</div>
+                        <div className="text-xs text-zinc-400">สำหรับผู้ดูแลระบบจัดการตัวบทส่วนกลาง</div>
+                      </div>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-zinc-400" />
+                  </button>
+                ) : (
+                  <form onSubmit={handleDevKeySubmit} className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-zinc-800 flex items-center gap-1.5">
+                        <ShieldCheck className="w-3.5 h-3.5 text-amber-600" />
+                        ยืนยันตัวตน Admin (UID: Statuter-Dev)
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setShowDevInput(false)}
+                        className="text-xs text-zinc-400 hover:text-zinc-600"
+                      >
+                        ยกเลิก
+                      </button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        placeholder="กรอก Admin UID หรือ Key..."
+                        value={adminKeyInput}
+                        onChange={(e) => setAdminKeyInput(e.target.value)}
+                        className="flex-1 px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-xl text-xs text-zinc-900 focus:outline-none focus:border-zinc-400"
+                        autoFocus
+                      />
+                      <button
+                        type="submit"
+                        className="px-4 py-2 bg-zinc-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-all cursor-pointer"
+                      >
+                        เข้าสู่ระบบ
+                      </button>
+                    </div>
+                  </form>
+                )}
               </div>
             )}
           </div>

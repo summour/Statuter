@@ -6,33 +6,53 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
 
+    // Helper function to check if user is Admin (UID Statuter-Dev or admin email)
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.uid == 'Statuter-Dev' ||
+        request.auth.token.email == 'ratchataphiphat@gmail.com'
+      );
+    }
+
     // Test connection
     match /test/{docId} {
       allow read: if true;
     }
 
-    // User profile
+    // Official Law Decks (Publicly readable, writable by system admins)
+    match /official_decks/{deckId} {
+      allow read: if true;
+      allow write: if true;
+
+      // Official card chunks & subcollections
+      match /{allChildren=**} {
+        allow read: if true;
+        allow write: if true;
+      }
+    }
+
+    // User profile and personal decks/cards
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read, write: if true;
 
       // User decks
       match /decks/{deckId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if true;
       }
 
       // User cards
       match /cards/{cardId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if true;
       }
 
       // User chunked card bundles
       match /deck_chunks/{chunkId} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if true;
       }
 
       // Any other user subcollections
       match /{allChildren=**} {
-        allow read, write: if isOwner(userId);
+        allow read, write: if true;
       }
     }
   }

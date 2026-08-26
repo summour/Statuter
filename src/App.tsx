@@ -10,9 +10,12 @@ import { DeckEditModal } from './components/DeckEditModal';
 import { DeleteDeckModal } from './components/DeleteDeckModal';
 import { IOSDock, TabType } from './components/IOSDock';
 import { SettingsView } from './components/SettingsView';
+import { AdminDashboard } from './components/admin/AdminDashboard';
+import { OfficialLibraryModal } from './components/OfficialLibraryModal';
 import { LawDeck, LawCard, NumeralSystem } from './types';
 import { LAW_DECKS, INITIAL_LAW_CARDS } from './data/defaultDecks';
 import { parseRawSectionNumber } from './utils/thaiLawParser';
+import { useAuth } from './context/AuthContext';
 import { 
   loadStoredCards, 
   saveStoredCards, 
@@ -26,6 +29,7 @@ import {
 import { CheckCircle2 } from 'lucide-react';
 
 export function App() {
+  const { isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [cards, setCards] = useState<LawCard[]>(() => loadStoredCards());
   const [decks, setDecks] = useState<LawDeck[]>(() => loadStoredDecks());
@@ -37,6 +41,7 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [activeCardId, setActiveCardId] = useState<string | undefined>(undefined);
   const [importNotification, setImportNotification] = useState<{ message: string; deckId?: string } | null>(null);
+  const [isOfficialLibraryOpen, setIsOfficialLibraryOpen] = useState<boolean>(false);
 
   // Initialize and load full persistent data from IndexedDB on startup
   useEffect(() => {
@@ -268,6 +273,32 @@ export function App() {
     setTimeout(() => setImportNotification(null), 6000);
   }, [sortLawCards]);
 
+  // Handle Download & Install from Official Cloud Library
+  const handleInstallOfficialDeck = useCallback((officialDeck: LawDeck, officialCards: LawCard[]) => {
+    // Add/Update Deck
+    setDecks(prevDecks => {
+      const exists = prevDecks.some(d => d.id === officialDeck.id);
+      if (exists) {
+        return prevDecks.map(d => d.id === officialDeck.id ? officialDeck : d);
+      }
+      return [officialDeck, ...prevDecks];
+    });
+
+    // Add/Update Cards
+    setCards(prevCards => {
+      const cardMap = new Map<string, LawCard>();
+      prevCards.forEach(c => cardMap.set(c.id, c));
+      officialCards.forEach(c => cardMap.set(c.id, c));
+      return sortLawCards(Array.from(cardMap.values()));
+    });
+
+    setImportNotification({
+      message: `ติดตั้งสำรับทางการ "${officialDeck.name}" (${officialCards.length} มาตรา) เข้าสู่เครื่องเรียบร้อยแล้ว`,
+      deckId: officialDeck.id,
+    });
+    setTimeout(() => setImportNotification(null), 7000);
+  }, [sortLawCards]);
+
   // Reset to default cards & decks
   const handleResetData = useCallback(() => {
     setDecks([]);
@@ -390,6 +421,7 @@ export function App() {
               onOpenDeleteDeck={handleOpenDeleteDeck}
               onOpenAddSectionToDeck={handleOpenAddSectionToDeck}
               onOpenDeckManager={() => setActiveTab('settings')}
+              onOpenOfficialLibrary={() => setIsOfficialLibraryOpen(true)}
               numeralSystem={numeralSystem}
             />
           ) : deckViewMode === 'overview' ? (
@@ -439,6 +471,12 @@ export function App() {
               onNumeralSystemChange={setNumeralSystem}
             />
           )
+        ) : activeTab === 'admin' ? (
+          /* Admin In-App CMS (Statuter-Dev Only) */
+          <AdminDashboard
+            onBackToHome={() => setActiveTab('home')}
+            numeralSystem={numeralSystem}
+          />
         ) : (
           /* iOS Settings Tab */
           <SettingsView
@@ -446,6 +484,7 @@ export function App() {
             cards={cards}
             onImportBackup={handleImportBackup}
             onResetData={handleResetData}
+            onOpenAdminCMS={() => setActiveTab('admin')}
           />
         )}
       </main>
@@ -461,6 +500,16 @@ export function App() {
         }}
         cardsCount={cards.length}
         decksCount={decks.length}
+        isAdmin={isAdmin}
+      />
+
+      {/* Official Library Download Modal (For All Users) */}
+      <OfficialLibraryModal
+        isOpen={isOfficialLibraryOpen}
+        onClose={() => setIsOfficialLibraryOpen(false)}
+        onInstallDeck={handleInstallOfficialDeck}
+        installedDeckIds={decks.map(d => d.id)}
+        numeralSystem={numeralSystem}
       />
 
       {/* Add New Section Modal */}

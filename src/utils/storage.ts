@@ -1,15 +1,19 @@
-import { LawCard, LawDeck, NumeralSystem } from '../types';
-import { sanitizeCardTextAndParagraphs, parseRawSectionNumber } from './thaiLawParser';
+import { LawCard, LawDeck, NumeralSystem, OfficialLawDeck } from '../types';
+import { sanitizeCardTextAndParagraphs, parseRawSectionNumber, parseThaiLawText } from './thaiLawParser';
+import { SAMPLE_CIVIL_CODE_TEXT } from '../data/sampleLawText';
 
 const DB_NAME = 'statuter_local_db_v1';
-const DB_VERSION = 1;
+const DB_VERSION = 2; // Incremented for official_decks and official_cards stores
 const CARDS_STORE = 'cards';
 const DECKS_STORE = 'decks';
+const OFFICIAL_DECKS_STORE = 'official_decks';
+const OFFICIAL_CARDS_STORE = 'official_cards';
 const NUMERAL_SYSTEM_KEY = 'statutler_numeral_system_pref';
 
 // Legacy LocalStorage keys for automatic migration
 const LEGACY_CARDS_KEY = 'law_library_cards_v4';
 const LEGACY_DECKS_KEY = 'law_library_decks_v4';
+const LEGACY_OFFICIAL_DECKS_KEY = 'statuter_official_decks_cache_v1';
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
@@ -22,13 +26,19 @@ function getDB(): Promise<IDBDatabase> {
     dbPromise = new Promise((resolve, reject) => {
       const request = window.indexedDB.open(DB_NAME, DB_VERSION);
 
-      request.onupgradeneeded = () => {
+      request.onupgradeneeded = (event) => {
         const db = request.result;
         if (!db.objectStoreNames.contains(CARDS_STORE)) {
           db.createObjectStore(CARDS_STORE, { keyPath: 'id' });
         }
         if (!db.objectStoreNames.contains(DECKS_STORE)) {
           db.createObjectStore(DECKS_STORE, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(OFFICIAL_DECKS_STORE)) {
+          db.createObjectStore(OFFICIAL_DECKS_STORE, { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains(OFFICIAL_CARDS_STORE)) {
+          db.createObjectStore(OFFICIAL_CARDS_STORE, { keyPath: 'id' });
         }
       };
 
@@ -248,9 +258,11 @@ export function saveStoredDecks(decks: LawDeck[]): void {
 export async function clearAllLocalDatabase(): Promise<void> {
   try {
     const db = await getDB();
-    const tx = db.transaction([CARDS_STORE, DECKS_STORE], 'readwrite');
+    const tx = db.transaction([CARDS_STORE, DECKS_STORE, OFFICIAL_DECKS_STORE, OFFICIAL_CARDS_STORE], 'readwrite');
     tx.objectStore(CARDS_STORE).clear();
     tx.objectStore(DECKS_STORE).clear();
+    tx.objectStore(OFFICIAL_DECKS_STORE).clear();
+    tx.objectStore(OFFICIAL_CARDS_STORE).clear();
   } catch (err) {
     console.error('Error clearing IndexedDB:', err);
   }
@@ -258,8 +270,228 @@ export async function clearAllLocalDatabase(): Promise<void> {
   try {
     localStorage.removeItem(LEGACY_CARDS_KEY);
     localStorage.removeItem(LEGACY_DECKS_KEY);
+    localStorage.removeItem(LEGACY_OFFICIAL_DECKS_KEY);
   } catch (e) {
     console.warn('Error clearing localStorage:', e);
+  }
+}
+
+// -------------------------------------------------------------
+// OFFICIAL DECKS & CARDS INDEXEDDB STORAGE (OFFLINE-FIRST)
+// -------------------------------------------------------------
+
+export async function saveOfficialDeckToLocalDB(deck: OfficialLawDeck, cards?: LawCard[], rawText?: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction([OFFICIAL_DECKS_STORE, OFFICIAL_CARDS_STORE], 'readwrite');
+    
+    // Save deck metadata (including rawText if available)
+    const deckToSave: OfficialLawDeck = {
+      ...deck,
+      rawText: rawText || deck.rawText,
+    };
+    tx.objectStore(OFFICIAL_DECKS_STORE).put(deckToSave);
+    
+    // Save cards if provided
+    if (cards && cards.length > 0) {
+      const cardsStore = tx.objectStore(OFFICIAL_CARDS_STORE);
+      for (const card of cards) {
+        cardsStore.put(sanitizeCardTextAndParagraphs(card));
+      }
+    }
+
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Error saving official deck to IndexedDB:', err);
+  }
+}
+
+export async function loadOfficialDecksFromLocalDB(): Promise<OfficialLawDeck[]> {
+  try {
+    const db = await getDB();
+    const decks: OfficialLawDeck[] = await new Promise((resolve, reject) => {
+      const tx = db.transaction(OFFICIAL_DECKS_STORE, 'readonly');
+      const store = tx.objectStore(OFFICIAL_DECKS_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+
+    if (decks.length > 0) {
+      return decks.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    }
+
+    // Auto-seed sample Civil and Commercial Code if completely empty
+    const seeded = await seedDefaultOfficialCivilCode();
+    return seeded ? [seeded.deck] : [];
+  } catch (err) {
+    console.error('Error loading official decks from IndexedDB:', err);
+    return [];
+  }
+}
+
+export async function loadOfficialCardsFromLocalDB(deckId: string): Promise<LawCard[]> {
+  try {
+    const db = await getDB();
+    const rawCards: LawCard[] = await new Promise((resolve, reject) => {
+      const tx = db.transaction(OFFICIAL_CARDS_STORE, 'readonly');
+      const store = tx.objectStore(OFFICIAL_CARDS_STORE);
+      const req = store.getAll();
+      req.onsuccess = () => resolve(req.result || []);
+      req.onerror = () => reject(req.error);
+    });
+
+    const deckCards = rawCards
+      .filter(c => c.deckId === deckId)
+      .map(c => sanitizeCardTextAndParagraphs(c))
+      .sort((a, b) => {
+        const numA = typeof a.sectionRawNum === 'number' && !isNaN(a.sectionRawNum) ? a.sectionRawNum : parseRawSectionNumber(a.sectionNumber);
+        const numB = typeof b.sectionRawNum === 'number' && !isNaN(b.sectionRawNum) ? b.sectionRawNum : parseRawSectionNumber(b.sectionNumber);
+        return numA - numB;
+      });
+
+    if (deckCards.length > 0) {
+      return deckCards;
+    }
+
+    // If cards not stored yet, but deck has rawText, parse on-the-fly instantly
+    const deck: OfficialLawDeck | null = await new Promise((resolve) => {
+      const tx = db.transaction(OFFICIAL_DECKS_STORE, 'readonly');
+      const req = tx.objectStore(OFFICIAL_DECKS_STORE).get(deckId);
+      req.onsuccess = () => resolve(req.result || null);
+      req.onerror = () => resolve(null);
+    });
+
+    if (deck && deck.rawText) {
+      const report = parseThaiLawText(deck.rawText);
+      if (report && report.sections.length > 0) {
+        const parsedCards: LawCard[] = report.sections.map((sec, idx) => ({
+          id: `${deck.id}_sec_${sec.sectionRawNum || idx + 1}`,
+          deckId: deck.id,
+          deckName: deck.name,
+          deckShortName: deck.shortName,
+          book: sec.book,
+          titleStructure: sec.titleStructure,
+          chapter: sec.chapter,
+          part: sec.part,
+          sectionNumber: sec.sectionNumber,
+          sectionRawNum: sec.sectionRawNum,
+          title: sec.title,
+          fullText: sec.fullText,
+          paragraphs: sec.paragraphs,
+          isVerified: true,
+          createdAt: Date.now(),
+        }));
+
+        // Cache parsed cards asynchronously
+        saveOfficialDeckToLocalDB(deck, parsedCards).catch(() => {});
+        return parsedCards;
+      }
+    }
+
+    return [];
+  } catch (err) {
+    console.error('Error loading official cards from IndexedDB:', err);
+    return [];
+  }
+}
+
+export async function deleteOfficialDeckFromLocalDB(deckId: string): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction([OFFICIAL_DECKS_STORE, OFFICIAL_CARDS_STORE], 'readwrite');
+    tx.objectStore(OFFICIAL_DECKS_STORE).delete(deckId);
+    
+    // Also delete all associated cards for this deck
+    const cardsStore = tx.objectStore(OFFICIAL_CARDS_STORE);
+    const allCardsReq = cardsStore.getAll();
+    allCardsReq.onsuccess = () => {
+      const allCards: LawCard[] = allCardsReq.result || [];
+      for (const card of allCards) {
+        if (card.deckId === deckId) {
+          cardsStore.delete(card.id);
+        }
+      }
+    };
+
+    await new Promise<void>((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (err) {
+    console.error('Error deleting official deck from IndexedDB:', err);
+  }
+}
+
+export async function updateOfficialDeckStatusInLocalDB(deckId: string, isPublished: boolean): Promise<void> {
+  try {
+    const db = await getDB();
+    const tx = db.transaction(OFFICIAL_DECKS_STORE, 'readwrite');
+    const store = tx.objectStore(OFFICIAL_DECKS_STORE);
+    const getReq = store.get(deckId);
+    getReq.onsuccess = () => {
+      const deck: OfficialLawDeck = getReq.result;
+      if (deck) {
+        deck.isPublished = isPublished;
+        deck.updatedAt = Date.now();
+        store.put(deck);
+      }
+    };
+  } catch (err) {
+    console.error('Error updating official deck status in IndexedDB:', err);
+  }
+}
+
+// Helper to auto-seed default official Civil and Commercial Code (ป.พ.พ.)
+export async function seedDefaultOfficialCivilCode(): Promise<{ deck: OfficialLawDeck; cards: LawCard[] } | null> {
+  try {
+    const report = parseThaiLawText(SAMPLE_CIVIL_CODE_TEXT);
+    if (!report || report.sections.length === 0) return null;
+
+    const deck: OfficialLawDeck = {
+      id: 'official_civil_code_standard',
+      name: 'ประมวลกฎหมายแพ่งและพาณิชย์',
+      shortName: 'ป.พ.พ.',
+      category: 'code',
+      categoryLabel: 'ประมวลกฎหมาย',
+      iconName: 'BookOpen',
+      color: '#3B82F6',
+      description: 'ประมวลกฎหมายแพ่งและพาณิชย์ ฉบับมาตรฐานทางการ พร้อมโครงสร้างบรรพและหมวดครบถ้วน',
+      isPublished: true,
+      version: '1.0',
+      totalSections: report.sections.length,
+      author: 'สำนักงานคณะกรรมการกฤษฎีกา (คลังมาตรฐาน)',
+      updatedAt: Date.now(),
+      isDefault: true,
+      rawText: SAMPLE_CIVIL_CODE_TEXT,
+    };
+
+    const cards: LawCard[] = report.sections.map((sec, idx) => ({
+      id: `${deck.id}_sec_${sec.sectionRawNum || idx + 1}`,
+      deckId: deck.id,
+      deckName: deck.name,
+      deckShortName: deck.shortName,
+      book: sec.book,
+      titleStructure: sec.titleStructure,
+      chapter: sec.chapter,
+      part: sec.part,
+      sectionNumber: sec.sectionNumber,
+      sectionRawNum: sec.sectionRawNum,
+      title: sec.title,
+      fullText: sec.fullText,
+      paragraphs: sec.paragraphs,
+      isVerified: true,
+      createdAt: Date.now(),
+    }));
+
+    await saveOfficialDeckToLocalDB(deck, cards);
+    return { deck, cards };
+  } catch (err) {
+    console.warn('Could not seed default official civil code:', err);
+    return null;
   }
 }
 

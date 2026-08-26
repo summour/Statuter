@@ -40,6 +40,17 @@ export interface LawDeck {
   color?: string;
   createdAt?: number;
   isDefault?: boolean;
+  rawText?: string;
+}
+
+export interface OfficialLawDeck extends LawDeck {
+  isPublished: boolean;
+  version: string;
+  author?: string;
+  totalSections: number;
+  updatedAt?: number;
+  downloadCount?: number;
+  rawText?: string;
 }
 
 export type ParsedSectionStatus = 'valid' | 'uncertain' | 'duplicate' | 'error';
