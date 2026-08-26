@@ -32,7 +32,7 @@ import {
 } from '../../lib/firebase';
 import { parseThaiLawText, formatNumeralText, thaiToArabicDigits } from '../../utils/thaiLawParser';
 import { renderDeckIcon } from '../DeckIconHelper';
-import { loadAllDataFromDB, seedDefaultOfficialCivilCode } from '../../utils/storage';
+import { loadAllDataFromDB, seedDefaultOfficialCivilCode, loadOfficialDecksFromLocalDB } from '../../utils/storage';
 
 interface AdminDashboardProps {
   onBackToHome: () => void;
@@ -58,6 +58,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [selectedDeckCards, setSelectedDeckCards] = useState<LawCard[]>([]);
   const [loadingCards, setLoadingCards] = useState<boolean>(false);
   const [cardSearchQuery, setCardSearchQuery] = useState<string>('');
+  const [togglingDeckId, setTogglingDeckId] = useState<string | null>(null);
+  const [deckToDelete, setDeckToDelete] = useState<OfficialLawDeck | null>(null);
+  const [isDeletingDeck, setIsDeletingDeck] = useState<boolean>(false);
 
   // Importer state
   const [importerText, setImporterText] = useState<string>('');
@@ -76,19 +79,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     setTimeout(() => setStatusToast(null), 4500);
   };
 
-  // Load official decks from Cloud / Local DB
+  // Load official decks from Cloud / Local DB (Instant-First with Stale-While-Revalidate)
   const loadDecks = useCallback(async () => {
-    setLoadingDecks(true);
+    // 1. Instant local read (<5ms)
+    try {
+      const localDecks = await loadOfficialDecksFromLocalDB();
+      const userDB = await loadAllDataFromDB();
+      setLocalUserData(userDB);
+      if (localDecks && localDecks.length > 0) {
+        setOfficialDecks(localDecks);
+        setLoadingDecks(false); // Show content immediately!
+      }
+    } catch {}
+
+    // 2. Fetch latest updates from Cloud in parallel
     try {
       const decks = await fetchOfficialDecks(true); // Include unpublished drafts
-      setOfficialDecks(decks);
-      
-      // Also fetch any user decks from local database
+      if (decks && decks.length > 0) {
+        setOfficialDecks(decks);
+      }
       const userDB = await loadAllDataFromDB();
       setLocalUserData(userDB);
     } catch (err: any) {
-      console.error('Failed to load official decks:', err);
-      showToast('ไม่สามารถโหลดรายการคลังกฎหมายส่วนกลางได้', 'error');
+      console.warn('Background official decks sync completed with local cache fallback');
     } finally {
       setLoadingDecks(false);
     }
@@ -157,11 +170,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Load cards for selected deck
   const handleSelectDeckToInspect = async (deck: OfficialLawDeck) => {
     setSelectedDeck(deck);
+    setSelectedDeckCards([]);
+    setActiveSubTab('editor'); // Immediate response
     setLoadingCards(true);
     try {
       const cards = await fetchOfficialDeckCards(deck.id, (msg) => setPublishProgress(msg));
       setSelectedDeckCards(cards);
-      setActiveSubTab('editor');
     } catch (err) {
       console.error('Failed to load deck cards:', err);
       showToast('เกิดข้อผิดพลาดในการโหลดตัวบทของสำรับนี้', 'error');
@@ -174,6 +188,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Toggle publish status
   const handleTogglePublish = async (deck: OfficialLawDeck, e: React.MouseEvent) => {
     e.stopPropagation();
+    setTogglingDeckId(deck.id);
     try {
       const newStatus = !deck.isPublished;
       await toggleOfficialDeckPublishStatus(deck.id, newStatus);
@@ -181,24 +196,29 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       showToast(`เปลี่ยนสถานะ "${deck.name}" เป็น ${newStatus ? 'เผยแพร่สู่สาธารณะแล้ว' : 'ฉบับร่าง (ซ่อน)'} สำเร็จ`, 'success');
     } catch (err) {
       showToast('ไม่สามารถเปลี่ยนสถานะการเผยแพร่ได้', 'error');
+    } finally {
+      setTogglingDeckId(null);
     }
   };
 
-  // Delete official deck
-  const handleDeleteDeck = async (deck: OfficialLawDeck, e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!window.confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบ "${deck.name}" ออกจากคลังกลางของระบบ?`)) return;
+  // Delete official deck confirmation execution
+  const handleConfirmDeleteDeck = async () => {
+    if (!deckToDelete) return;
+    setIsDeletingDeck(true);
     try {
-      await deleteOfficialDeckFromCloud(deck.id);
-      setOfficialDecks(prev => prev.filter(d => d.id !== deck.id));
-      if (selectedDeck?.id === deck.id) {
+      await deleteOfficialDeckFromCloud(deckToDelete.id);
+      setOfficialDecks(prev => prev.filter(d => d.id !== deckToDelete.id));
+      if (selectedDeck?.id === deckToDelete.id) {
         setSelectedDeck(null);
         setSelectedDeckCards([]);
         setActiveSubTab('decks');
       }
-      showToast(`ลบ "${deck.name}" ออกจากคลังส่วนกลางแล้ว`, 'success');
+      showToast(`ลบ "${deckToDelete.name}" ออกจากคลังส่วนกลางแล้ว`, 'success');
+      setDeckToDelete(null);
     } catch (err) {
       showToast('เกิดข้อผิดพลาดในการลบสำรับ', 'error');
+    } finally {
+      setIsDeletingDeck(false);
     }
   };
 
@@ -584,35 +604,50 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       </div>
 
                       {/* Actions */}
-                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+                      <div className="flex items-center gap-2 shrink-0 self-end sm:self-center relative z-10" onClick={(e) => e.stopPropagation()}>
                         <button
+                          type="button"
                           onClick={(e) => handleTogglePublish(deck, e)}
+                          disabled={togglingDeckId === deck.id}
                           title={deck.isPublished ? 'ซ่อนจากผู้ใช้' : 'เผยแพร่สู่ผู้ใช้'}
-                          className={`p-2 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer ${
+                          className={`px-2.5 py-1.5 rounded-xl text-xs font-semibold border transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60 ${
                             deck.isPublished
-                              ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200'
-                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200'
+                              ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-700 border-zinc-200 active:scale-95'
+                              : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 active:scale-95'
                           }`}
                         >
-                          {deck.isPublished ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                          <span className="hidden sm:inline">{deck.isPublished ? 'ซ่อน' : 'เผยแพร่'}</span>
+                          {togglingDeckId === deck.id ? (
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          ) : deck.isPublished ? (
+                            <EyeOff className="w-3.5 h-3.5" />
+                          ) : (
+                            <Eye className="w-3.5 h-3.5" />
+                          )}
+                          <span className="hidden sm:inline">
+                            {togglingDeckId === deck.id ? 'กำลังบันทึก...' : deck.isPublished ? 'ซ่อน' : 'เผยแพร่'}
+                          </span>
                         </button>
 
                         <button
+                          type="button"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleSelectDeckToInspect(deck);
                           }}
-                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-semibold transition-colors flex items-center gap-1.5 cursor-pointer border border-zinc-200"
+                          className="px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 active:scale-95 text-zinc-800 text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer border border-zinc-200"
                         >
                           <Edit3 className="w-3.5 h-3.5" />
                           <span>จัดการตัวบท</span>
                         </button>
 
                         <button
-                          onClick={(e) => handleDeleteDeck(deck, e)}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeckToDelete(deck);
+                          }}
                           title="ลบสำรับนี้"
-                          className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600 border border-rose-200 transition-colors cursor-pointer"
+                          className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 active:scale-95 text-rose-600 border border-rose-200 transition-all cursor-pointer"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
@@ -989,6 +1024,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           </div>
         )}
       </main>
+
+      {/* Delete Deck Confirmation Modal */}
+      {deckToDelete && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-150">
+          <div 
+            className="bg-white rounded-2xl max-w-md w-full p-5 sm:p-6 shadow-2xl border border-zinc-200 space-y-4 animate-in zoom-in-95 duration-150"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="w-10 h-10 rounded-xl bg-rose-50 flex items-center justify-center shrink-0 border border-rose-100">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-zinc-900">ยืนยันการลบสำรับกฎหมาย</h3>
+                <p className="text-xs text-zinc-500">การกระทำนี้จะนำสำรับออกจากคลังกลาง</p>
+              </div>
+            </div>
+
+            <div className="bg-zinc-50 rounded-xl p-3.5 border border-zinc-200 text-xs space-y-1">
+              <div className="font-bold text-zinc-800">{deckToDelete.name} ({deckToDelete.shortName})</div>
+              <div className="text-zinc-500">{deckToDelete.totalSections.toLocaleString()} มาตรา • {deckToDelete.categoryLabel}</div>
+            </div>
+
+            <p className="text-xs text-zinc-600 leading-relaxed">
+              คุณแน่ใจหรือไม่ว่าต้องการลบสำรับนี้ออกจากคลังส่วนกลางของระบบ?
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setDeckToDelete(null)}
+                disabled={isDeletingDeck}
+                className="px-4 py-2 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-700 text-xs font-bold transition-all cursor-pointer disabled:opacity-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDeleteDeck}
+                disabled={isDeletingDeck}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {isDeletingDeck ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                <span>{isDeletingDeck ? 'กำลังลบ...' : 'ยืนยันลบสำรับ'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

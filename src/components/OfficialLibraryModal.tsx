@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { OfficialLawDeck, LawCard, LawDeck, NumeralSystem } from '../types';
 import { fetchOfficialDecks, fetchOfficialDeckCards } from '../lib/firebase';
+import { loadOfficialDecksFromLocalDB } from '../utils/storage';
 import { renderDeckIcon } from './DeckIconHelper';
 import { formatNumeralText } from '../utils/thaiLawParser';
 
@@ -42,9 +43,17 @@ export const OfficialLibraryModal: React.FC<OfficialLibraryModalProps> = ({
     if (!isOpen) return;
 
     let isMounted = true;
-    setLoading(true);
     setErrorMsg(null);
 
+    // 1. Instant load from local IndexedDB cache (<5ms)
+    loadOfficialDecksFromLocalDB().then(local => {
+      if (isMounted && local && local.length > 0) {
+        setOfficialDecks(local.filter(d => d.isPublished));
+        setLoading(false);
+      }
+    });
+
+    // 2. Fetch fresh updates from Cloud in background
     fetchOfficialDecks(false) // Only published decks
       .then(decks => {
         if (isMounted) {
@@ -54,8 +63,7 @@ export const OfficialLibraryModal: React.FC<OfficialLibraryModalProps> = ({
       })
       .catch(err => {
         if (isMounted) {
-          console.error('Failed to load official decks:', err);
-          setErrorMsg('ไม่สามารถเชื่อมต่อคลังตัวบทส่วนกลางได้ กรุณาตรวจสอบการเชื่อมต่อ');
+          console.warn('Official decks using local DB fallback:', err);
           setLoading(false);
         }
       });

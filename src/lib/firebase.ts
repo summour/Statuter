@@ -467,7 +467,7 @@ export async function fetchOfficialDecks(includeUnpublished: boolean = false): P
   // Seed with local IndexedDB records
   localDecks.forEach(d => deckMap.set(d.id, d));
 
-  try {
+  const fetchCloud = async () => {
     const colRef = collection(db, 'official_decks');
     const snapshot = await getDocs(colRef);
 
@@ -501,8 +501,13 @@ export async function fetchOfficialDecks(includeUnpublished: boolean = false): P
     const allMerged = Array.from(deckMap.values());
     const result = allMerged.filter(deck => includeUnpublished || deck.isPublished);
     return result.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  };
+
+  try {
+    // 3.5-second timeout so the UI is never stalled
+    return await withTimeout(fetchCloud(), 3500, 'Cloud fetch timeout');
   } catch (error) {
-    console.warn('Official decks cloud read fallback to local DB:', error);
+    console.warn('Official decks using local DB instant cache:', error);
     const result = Array.from(deckMap.values()).filter(deck => includeUnpublished || deck.isPublished);
     return result.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }
@@ -524,55 +529,70 @@ export async function fetchOfficialDeckCards(
       return localCards;
     }
 
-    // 2. Fetch official deck document from Firestore
+    // 2. Fetch official deck content from Firestore
     try {
+      // Check subdocument 'content/raw' first
+      let rawText = '';
+      let deckMeta: any = {};
+
+      try {
+        const rawDocSnap = await getDoc(doc(db, 'official_decks', deckId, 'content', 'raw'));
+        if (rawDocSnap.exists()) {
+          rawText = rawDocSnap.data()?.rawText || '';
+        }
+      } catch {}
+
       const deckDocSnap = await getDoc(doc(db, 'official_decks', deckId));
       if (deckDocSnap.exists()) {
-        const data = deckDocSnap.data();
-        if (data.rawText && typeof data.rawText === 'string' && data.rawText.trim().length > 0) {
-          onProgress?.('กำลังประมวลผลแยกมาตราในเครื่อง (0.05 วินาที)...');
-          const report = parseThaiLawText(data.rawText);
-          if (report && report.sections.length > 0) {
-            const parsedCards: LawCard[] = report.sections.map((sec, idx) => ({
-              id: `${deckId}_sec_${sec.sectionRawNum || idx + 1}`,
-              deckId: deckId,
-              deckName: data.name || 'สำรับกฎหมาย',
-              deckShortName: data.shortName || 'กฎหมาย',
-              book: sec.book,
-              titleStructure: sec.titleStructure,
-              chapter: sec.chapter,
-              part: sec.part,
-              sectionNumber: sec.sectionNumber,
-              sectionRawNum: sec.sectionRawNum,
-              title: sec.title,
-              fullText: sec.fullText,
-              paragraphs: sec.paragraphs,
-              isVerified: true,
-              createdAt: Date.now(),
-            }));
+        deckMeta = deckDocSnap.data() || {};
+        if (!rawText) {
+          rawText = deckMeta.rawText || '';
+        }
+      }
 
-            // Save parsed cards to IndexedDB for instant future reads
-            const officialDeckObj: OfficialLawDeck = {
-              id: data.id || deckId,
-              name: data.name || '',
-              shortName: data.shortName || '',
-              category: data.category || 'code',
-              categoryLabel: data.categoryLabel || 'ประมวลกฎหมาย',
-              iconName: data.iconName || 'BookOpen',
-              color: data.color || '#3b82f6',
-              description: data.description || '',
-              isPublished: data.isPublished !== false,
-              version: data.version || '1.0',
-              totalSections: parsedCards.length,
-              author: data.author || 'Statuter-Dev',
-              updatedAt: data.updatedAt || Date.now(),
-              isDefault: true,
-              rawText: data.rawText,
-            };
-            saveOfficialDeckToLocalDB(officialDeckObj, parsedCards, data.rawText).catch(() => {});
+      if (rawText && typeof rawText === 'string' && rawText.trim().length > 0) {
+        onProgress?.('กำลังประมวลผลแยกมาตราในเครื่อง (0.05 วินาที)...');
+        const report = parseThaiLawText(rawText);
+        if (report && report.sections.length > 0) {
+          const parsedCards: LawCard[] = report.sections.map((sec, idx) => ({
+            id: `${deckId}_sec_${sec.sectionRawNum || idx + 1}`,
+            deckId: deckId,
+            deckName: deckMeta.name || 'สำรับกฎหมาย',
+            deckShortName: deckMeta.shortName || 'กฎหมาย',
+            book: sec.book,
+            titleStructure: sec.titleStructure,
+            chapter: sec.chapter,
+            part: sec.part,
+            sectionNumber: sec.sectionNumber,
+            sectionRawNum: sec.sectionRawNum,
+            title: sec.title,
+            fullText: sec.fullText,
+            paragraphs: sec.paragraphs,
+            isVerified: true,
+            createdAt: Date.now(),
+          }));
 
-            return parsedCards;
-          }
+          // Save parsed cards to IndexedDB for instant future reads
+          const officialDeckObj: OfficialLawDeck = {
+            id: deckMeta.id || deckId,
+            name: deckMeta.name || '',
+            shortName: deckMeta.shortName || '',
+            category: deckMeta.category || 'code',
+            categoryLabel: deckMeta.categoryLabel || 'ประมวลกฎหมาย',
+            iconName: deckMeta.iconName || 'BookOpen',
+            color: deckMeta.color || '#3b82f6',
+            description: deckMeta.description || '',
+            isPublished: deckMeta.isPublished !== false,
+            version: deckMeta.version || '1.0',
+            totalSections: parsedCards.length,
+            author: deckMeta.author || 'Statuter-Dev',
+            updatedAt: deckMeta.updatedAt || Date.now(),
+            isDefault: true,
+            rawText: rawText,
+          };
+          saveOfficialDeckToLocalDB(officialDeckObj, parsedCards, rawText).catch(() => {});
+
+          return parsedCards;
         }
       }
     } catch (err) {
@@ -602,7 +622,7 @@ export async function fetchOfficialDeckCards(
   };
 
   try {
-    return await withTimeout(performFetch(), 15000, 'การดึงข้อมูลตัวบทหมดเวลา กรุณาลองใหม่อีกครั้ง');
+    return await withTimeout(performFetch(), 10000, 'การดึงข้อมูลตัวบทหมดเวลา กรุณาลองใหม่อีกครั้ง');
   } catch (error) {
     console.error('Error fetching official deck cards:', error);
     const cached = await loadOfficialCardsFromLocalDB(deckId);
@@ -639,13 +659,18 @@ export async function publishOfficialDeckToCloud(
   onProgress?.('กำลังบันทึกลงฐานข้อมูลในเครื่อง (IndexedDB)...');
   await saveOfficialDeckToLocalDB(deckWithRawText, cards, fullRawText);
 
-  // 2. Publish single document with raw text to Firestore Cloud (takes <200ms)
+  // 2. Publish metadata and raw content to Firestore Cloud (<200ms)
   try {
-    onProgress?.('กำลังส่งข้อมูลข้อความฉบับเต็มสู่คลังกลาง...');
+    onProgress?.('กำลังส่งข้อมูลสู่คลังกลาง...');
     const deckDocRef = doc(db, 'official_decks', deck.id);
-    const deckPayload = cleanForFirestore(deckWithRawText);
+    
+    // Metadata doc (lightweight, without huge rawText payload)
+    const { rawText: _, ...deckMetaOnly } = deckWithRawText;
+    await setDoc(deckDocRef, cleanForFirestore(deckMetaOnly), { merge: true });
 
-    await setDoc(deckDocRef, deckPayload, { merge: true });
+    // Raw content subdoc
+    const rawDocRef = doc(db, 'official_decks', deck.id, 'content', 'raw');
+    await setDoc(rawDocRef, cleanForFirestore({ rawText: fullRawText, updatedAt: Date.now() }), { merge: true });
   } catch (cloudError) {
     console.warn('Cloud sync deferred or offline:', cloudError);
   }
