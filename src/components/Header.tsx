@@ -2,10 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Scale, 
   Search, 
-  Plus, 
   X,
-  ChevronLeft,
-  UploadCloud
+  ChevronLeft
 } from 'lucide-react';
 import { LawDeck, NumeralSystem } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -15,11 +13,11 @@ interface HeaderProps {
   onSearchChange: (q: string) => void;
   selectedDeck: LawDeck | null;
   onSelectDeck: (deck: LawDeck | null) => void;
-  onOpenAddModal: () => void;
-  onOpenImportModal: () => void;
-  totalCardsCount: number;
-  totalDecksCount: number;
-  numeralSystem: NumeralSystem;
+  onOpenAddModal?: () => void;
+  onOpenImportModal?: () => void;
+  totalCardsCount?: number;
+  totalDecksCount?: number;
+  numeralSystem?: NumeralSystem;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -27,8 +25,6 @@ export const Header: React.FC<HeaderProps> = ({
   onSearchChange,
   selectedDeck,
   onSelectDeck,
-  onOpenAddModal,
-  onOpenImportModal,
 }) => {
   const { user } = useAuth();
   const [isSearchOpen, setIsSearchOpen] = useState(Boolean(searchQuery));
@@ -113,26 +109,6 @@ export const Header: React.FC<HeaderProps> = ({
                 className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
               >
                 <Search className="w-4 h-4" />
-              </button>
-
-              <button
-                id="header-import-modal-btn"
-                onClick={onOpenImportModal}
-                title="นำเข้าตัวบทกฎหมาย"
-                aria-label="นำเข้าตัวบทกฎหมาย"
-                className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 transition-colors cursor-pointer"
-              >
-                <UploadCloud className="w-4 h-4" />
-              </button>
-
-              <button
-                id="header-add-section-btn"
-                onClick={onOpenAddModal}
-                title="เพิ่มมาตรา"
-                aria-label="เพิ่มมาตรา"
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-zinc-900 text-white hover:bg-black transition-colors cursor-pointer shadow-2xs"
-              >
-                <Plus className="w-4 h-4" />
               </button>
 
               {user && user.photoURL && (
