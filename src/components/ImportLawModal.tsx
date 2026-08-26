@@ -238,15 +238,7 @@ export const ImportLawModal: React.FC<ImportLawModalProps> = ({
               <UploadCloud className="w-5 h-5" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-bold text-base sm:text-lg text-zinc-900">ระบบนำเข้าข้อมูลตัวบทกฎหมาย</h2>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full border border-emerald-200">
-                  Deterministic Parser (No AI)
-                </span>
-              </div>
-              <p className="text-xs text-zinc-500">
-                แยกกฎหมาย หมวดหมู่ และมาตราอัตโนมัติตามต้นฉบับ 100% พร้อมรายงานตรวจสอบความถูกต้อง
-              </p>
+              <h2 className="font-bold text-base sm:text-lg text-zinc-900">นำเข้าข้อมูลตัวบทกฎหมาย</h2>
             </div>
           </div>
 

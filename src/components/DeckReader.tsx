@@ -164,8 +164,8 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             onClick={onBackToLibrary}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 text-xs font-semibold transition-colors cursor-pointer"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span>กลับห้องสมุด</span>
+            <ArrowLeft className="w-3.5 h-3.5" />
+            <span>กลับ</span>
           </button>
 
           <div>
@@ -178,7 +178,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               </h2>
             </div>
             <p className="text-[11px] text-zinc-500 mt-0.5">
-              มาตราที่ {currentIndex + 1} จาก {deckCards.length} มาตรา
+              มาตราที่ {currentIndex + 1} / {deckCards.length}
             </p>
           </div>
         </div>
@@ -190,7 +190,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             <button
               onClick={() => onOpenAddSectionToDeck(deck.id)}
               className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-800 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
-              title="เพิ่มมาตราใหม่ในสำรับนี้"
+              title="เพิ่มมาตรา"
             >
               <Plus className="w-3.5 h-3.5" />
               <span className="hidden sm:inline">เพิ่มมาตรา</span>
@@ -202,9 +202,9 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             <button
               onClick={() => onOpenEditDeck(deck)}
               className="p-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl transition-colors cursor-pointer"
-              title="แก้ไขข้อมูลสำรับนี้"
+              title="แก้ไขสำรับ"
             >
-              <Settings className="w-4 h-4" />
+              <Settings className="w-3.5 h-3.5" />
             </button>
           )}
 
@@ -213,9 +213,9 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             <button
               onClick={() => exportDeckToJson(deck, cards)}
               className="p-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl transition-colors cursor-pointer"
-              title="ส่งออก Deck เป็น JSON"
+              title="ส่งออก JSON"
             >
-              <Download className="w-4 h-4" />
+              <Download className="w-3.5 h-3.5" />
             </button>
           )}
 
@@ -264,7 +264,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                 viewMode === 'card' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'
               }`}
-              title="โหมดอ่านทีละมาตรา"
+              title="การ์ด"
             >
               <Layers className="w-4 h-4" />
             </button>
@@ -273,7 +273,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               className={`p-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
                 viewMode === 'list' ? 'bg-white text-zinc-900 shadow-xs' : 'text-zinc-500 hover:text-zinc-900'
               }`}
-              title="โหมดอ่านแบบสารบัญรวม"
+              title="สารบัญ"
             >
               <List className="w-4 h-4" />
             </button>
@@ -287,7 +287,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
               else setFontSize('normal');
             }}
             className="px-2.5 py-1.5 bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
-            title="ปรับขนาดตัวอักษร"
+            title="ขนาดตัวอักษร"
           >
             A{fontSize === 'normal' ? '' : fontSize === 'large' ? '+' : '++'}
           </button>
@@ -460,7 +460,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     id="copy-statute-btn"
                     onClick={() => handleCopyText(`${currentCard.deckName} ${currentCard.sectionNumber} ${currentCard.title ? `(${currentCard.title})` : ''}\n\n${currentCard.fullText}`)}
                     className="flex items-center gap-1.5 text-xs font-medium text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 px-2.5 py-1.5 rounded-xl transition-colors cursor-pointer"
-                    title="คัดลอกตัวบทกฎหมาย"
+                    title="คัดลอก"
                   >
                     {copied ? (
                       <>
@@ -470,7 +470,7 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                     ) : (
                       <>
                         <Copy className="w-3.5 h-3.5" />
-                        <span>คัดลอกตัวบท</span>
+                        <span>คัดลอก</span>
                       </>
                     )}
                   </button>
@@ -560,19 +560,19 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
             </div>
 
             {/* BOTTOM CARD CONTROLS: PREV, SECTION COUNTER, NEXT */}
-            <div className="pt-5 mt-3 border-t border-zinc-100 flex items-center justify-between gap-3">
+            <div className="pt-4 mt-3 border-t border-zinc-100 flex items-center justify-between gap-3">
               <button
                 id="prev-card-btn"
                 onClick={handlePrev}
                 disabled={currentIndex === 0}
-                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   currentIndex === 0
                     ? 'opacity-40 text-zinc-400 cursor-not-allowed bg-zinc-100'
                     : 'bg-zinc-100 hover:bg-zinc-200 text-zinc-900'
                 }`}
               >
-                <ArrowLeft className="w-4 h-4" />
-                <span>มาตราก่อนหน้า</span>
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>ก่อนหน้า</span>
               </button>
 
               <div className="text-xs font-semibold text-zinc-500">
@@ -583,14 +583,14 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
                 id="next-card-btn"
                 onClick={handleNext}
                 disabled={currentIndex === deckCards.length - 1}
-                className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
                   currentIndex === deckCards.length - 1
                     ? 'opacity-40 text-zinc-400 cursor-not-allowed bg-zinc-100'
-                    : 'bg-zinc-900 hover:bg-zinc-800 text-white shadow-sm'
+                    : 'bg-zinc-900 hover:bg-zinc-800 text-white shadow-2xs'
                 }`}
               >
-                <span>มาตราถัดไป</span>
-                <ArrowRight className="w-4 h-4" />
+                <span>ถัดไป</span>
+                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

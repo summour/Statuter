@@ -105,8 +105,7 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
               <Plus className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="font-bold text-base text-zinc-900">เพิ่มมาตราใหม่ลงใน Deck</h3>
-              <p className="text-xs text-zinc-500">บันทึกตัวบทกฎหมายและโครงสร้างทางกฎหมาย</p>
+              <h3 className="font-bold text-base text-zinc-900">เพิ่มมาตราใหม่</h3>
             </div>
           </div>
           <button
@@ -121,12 +120,12 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
           {/* Deck select */}
           <div>
             <label className="block text-xs font-bold text-zinc-800 mb-1">
-              เลือก Deck กฎหมาย <span className="text-red-500">*</span>
+              สำรับ <span className="text-red-500">*</span>
             </label>
             <select
               value={deckId}
               onChange={(e) => setDeckId(e.target.value)}
-              className="w-full px-3.5 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+              className="w-full px-3.5 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
             >
               {decks.map(d => (
                 <option key={d.id} value={d.id}>
@@ -137,9 +136,9 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
           </div>
 
           {/* Legal Structure System (บรรพ / ลักษณะ / หมวด / ส่วน) */}
-          <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-200/80 space-y-3">
+          <div className="bg-zinc-50 p-4 rounded-2xl border border-zinc-200 space-y-3">
             <span className="text-xs font-bold text-zinc-800 block">
-              โครงสร้างทางกฎหมาย (บรรพ / ลักษณะ / หมวด / ส่วน)
+              โครงสร้าง (ถ้ามี)
             </span>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -149,10 +148,10 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="เช่น ภาค ๑ บทบัญญัติทั่วไป หรือ บรรพ ๑"
+                  placeholder="เช่น ภาค ๑ หรือ บรรพ ๑"
                   value={book}
                   onChange={(e) => setBook(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900"
                 />
               </div>
 
@@ -162,10 +161,10 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="เช่น ลักษณะ ๑ บทบัญญัติที่ใช้แก่ความผิดทั่วไป"
+                  placeholder="เช่น ลักษณะ ๑"
                   value={titleStructure}
                   onChange={(e) => setTitleStructure(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900"
                 />
               </div>
 
@@ -175,23 +174,23 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  placeholder="เช่น หมวด ๔ ความรับผิดในทางอาญา"
+                  placeholder="เช่น หมวด ๔"
                   value={chapter}
                   onChange={(e) => setChapter(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900"
                 />
               </div>
 
               <div>
                 <label className="block text-[11px] font-semibold text-zinc-600 mb-1">
-                  ส่วน (ถ้ามี)
+                  ส่วน
                 </label>
                 <input
                   type="text"
-                  placeholder="เช่น ส่วนที่ ๑ ..."
+                  placeholder="เช่น ส่วนที่ ๑"
                   value={part}
                   onChange={(e) => setPart(e.target.value)}
-                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                  className="w-full px-3 py-1.5 text-xs bg-white border border-zinc-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-zinc-900"
                 />
               </div>
             </div>
@@ -205,45 +204,40 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
               </label>
               <input
                 type="text"
-                placeholder="เช่น มาตรา ๕๙ หรือ 59"
+                placeholder="เช่น 59"
                 value={sectionNumber}
                 onChange={(e) => setSectionNumber(e.target.value)}
                 required
-                className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
               />
             </div>
 
             <div className="sm:col-span-2">
               <label className="block text-xs font-bold text-zinc-800 mb-1">
-                ชื่อเรื่อง / หัวข้อมาตรา
+                หัวข้อมาตรา
               </label>
               <input
                 type="text"
-                placeholder="เช่น ความรับผิดในทางอาญา (เจตนาและประมาท)"
+                placeholder="เช่น ความรับผิดในทางอาญา"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400"
+                className="w-full px-3.5 py-2 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900"
               />
             </div>
           </div>
 
           {/* Full Text (วรรค / อนุ) */}
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-bold text-zinc-800">
-                ตัวบทกฎหมาย (วรรค และ อนุ) <span className="text-red-500">*</span>
-              </label>
-              <span className="text-[11px] text-zinc-400">เว้นบรรทัด 1 บรรทัดเพื่อแยกวรรค</span>
-            </div>
+            <label className="block text-xs font-bold text-zinc-800 mb-1">
+              ตัวบท <span className="text-red-500">*</span>
+            </label>
             <textarea
-              placeholder={`บุคคลจะต้องรับผิดในทางอาญาก็ต่อเมื่อได้กระทำโดยเจตนา...
-
-กระทำโดยเจตนา ได้แก่...`}
+              placeholder={`บุคคลจะต้องรับผิดในทางอาญาก็ต่อเมื่อได้กระทำโดยเจตนา...`}
               value={fullText}
               onChange={(e) => setFullText(e.target.value)}
               required
-              rows={6}
-              className="w-full px-3.5 py-2.5 text-sm font-serif bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-400 leading-relaxed"
+              rows={5}
+              className="w-full px-3.5 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-xl focus:bg-white focus:outline-none focus:ring-1 focus:ring-zinc-900 leading-relaxed"
             />
           </div>
 
@@ -258,9 +252,9 @@ export const AddSectionModal: React.FC<AddSectionModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2 text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors shadow-sm cursor-pointer"
+              className="px-5 py-2 text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors shadow-2xs cursor-pointer"
             >
-              บันทึกมาตรา
+              บันทึก
             </button>
           </div>
         </form>

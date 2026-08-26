@@ -124,14 +124,11 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-bold text-base sm:text-lg text-zinc-900">ระบบจัดการสำรับกฎหมาย (Deck Manager)</h2>
+                <h2 className="font-bold text-base sm:text-lg text-zinc-900">จัดการสำรับกฎหมาย</h2>
                 <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-zinc-200 text-zinc-800">
                   {decks.length} สำรับ • {cards.length} มาตรา
                 </span>
               </div>
-              <p className="text-xs text-zinc-500">
-                เพิ่ม ลบ แก้ไข ปรับแต่งโครงสร้าง และสำรองข้อมูลสำรับได้อิสระเหมือน Anki
-              </p>
             </div>
           </div>
 
@@ -146,11 +143,11 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
         {/* Toolbar: Actions & Search */}
         <div className="px-6 py-3 border-b border-zinc-200 bg-white flex flex-wrap items-center justify-between gap-3">
           {/* Search Box */}
-          <div className="relative flex-1 min-w-[220px] max-w-md">
+          <div className="relative flex-1 min-w-[200px] max-w-md">
             <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
             <input
               type="text"
-              placeholder="ค้นหาสำรับกฎหมาย..."
+              placeholder="ค้นหาสำรับ..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full pl-9 pr-4 py-2 text-xs bg-zinc-100/80 hover:bg-zinc-100 focus:bg-white text-zinc-900 rounded-xl border border-transparent focus:border-zinc-300 focus:outline-none transition-all"
@@ -172,7 +169,7 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
             <button
               onClick={() => fileInputRef.current?.click()}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 transition-colors cursor-pointer"
-              title="นำเข้าไฟล์สำรองข้อมูล JSON หรือไฟล์ Deck"
+              title="นำเข้า JSON"
             >
               <UploadCloud className="w-3.5 h-3.5" />
               <span>นำเข้า JSON</span>
@@ -182,19 +179,19 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
             <button
               onClick={() => exportAllDataToJson(decks, cards)}
               className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-300 transition-colors cursor-pointer"
-              title="สำรองข้อมูลทั้งหมดเป็นไฟล์ JSON (Decks + Cards)"
+              title="สำรองข้อมูลทั้งหมด"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>สำรองข้อมูลทั้งหมด</span>
+              <span>สำรองข้อมูล</span>
             </button>
 
             {/* Create New Deck Button */}
             <button
               onClick={onOpenCreateDeck}
-              className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-all shadow-xs cursor-pointer hover:scale-[1.02]"
+              className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-all shadow-xs cursor-pointer"
             >
               <FolderPlus className="w-3.5 h-3.5" />
-              <span>+ สร้าง Deck ใหม่</span>
+              <span>+ สำรับใหม่</span>
             </button>
           </div>
         </div>
@@ -208,10 +205,7 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
         )}
 
         {/* Category Pills Filter */}
-        <div className="px-6 py-2.5 bg-zinc-50 border-b border-zinc-200 flex items-center gap-2 overflow-x-auto no-scrollbar">
-          <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider shrink-0 mr-1">
-            หมวด:
-          </span>
+        <div className="px-6 py-2.5 bg-zinc-50 border-b border-zinc-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setSelectedCategory('all')}
             className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
@@ -226,7 +220,7 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
               selectedCategory === 'code' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
             }`}
           >
-            ประมวลกฎหมาย ({decks.filter(d => d.category === 'code').length})
+            ประมวล ({decks.filter(d => d.category === 'code').length})
           </button>
           <button
             onClick={() => setSelectedCategory('proc')}
@@ -234,7 +228,7 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
               selectedCategory === 'proc' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
             }`}
           >
-            วิธีพิจารณาความ ({decks.filter(d => d.category === 'proc').length})
+            วิธีพิจารณา ({decks.filter(d => d.category === 'proc').length})
           </button>
           <button
             onClick={() => setSelectedCategory('constitution')}
@@ -250,31 +244,26 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
               selectedCategory === 'act' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
             }`}
           >
-            พระราชบัญญัติ ({decks.filter(d => d.category === 'act').length})
+            พ.ร.บ. ({decks.filter(d => d.category === 'act').length})
           </button>
-          <button
-            onClick={() => setSelectedCategory('custom')}
-            className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
-              selectedCategory === 'custom' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
-            }`}
-          >
-            สำรับส่วนตัว ({decks.filter(d => d.category === 'custom').length})
-          </button>
+          {decks.some(d => d.category === 'custom') && (
+            <button
+              onClick={() => setSelectedCategory('custom')}
+              className={`px-3 py-1 rounded-lg text-xs font-semibold cursor-pointer whitespace-nowrap transition-colors ${
+                selectedCategory === 'custom' ? 'bg-zinc-900 text-white shadow-2xs' : 'bg-white hover:bg-zinc-200 text-zinc-600 border border-zinc-200'
+              }`}
+            >
+              ส่วนตัว ({decks.filter(d => d.category === 'custom').length})
+            </button>
+          )}
         </div>
 
         {/* Deck List Table / Card View */}
         <div className="flex-1 overflow-y-auto p-6 space-y-3 bg-zinc-50/50">
           {filteredDecks.length === 0 ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-zinc-200">
-              <BookOpen className="w-12 h-12 text-zinc-300 mx-auto mb-3" />
-              <h3 className="font-bold text-sm text-zinc-800">ไม่พบสำรับกฎหมายที่ค้นหา</h3>
-              <p className="text-xs text-zinc-500 mt-1">ลองเปลี่ยนคำค้นหา หรือสร้าง Deck ใหม่</p>
-              <button
-                onClick={onOpenCreateDeck}
-                className="mt-4 px-4 py-2 bg-zinc-900 text-white rounded-xl text-xs font-bold hover:bg-zinc-800 transition-colors cursor-pointer"
-              >
-                + สร้างสำรับใหม่ทันที
-              </button>
+              <BookOpen className="w-10 h-10 text-zinc-300 mx-auto mb-2" />
+              <h3 className="font-bold text-sm text-zinc-800">ไม่พบสำรับที่ค้นหา</h3>
             </div>
           ) : (
             filteredDecks.map((deck) => {
@@ -282,12 +271,12 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
               return (
                 <div
                   key={deck.id}
-                  className="bg-white rounded-2xl p-4 sm:p-5 border border-zinc-200 shadow-xs hover:border-zinc-300 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 group"
+                  className="bg-white rounded-2xl p-4 border border-zinc-200 shadow-2xs hover:border-zinc-300 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 group"
                 >
                   {/* Left: Icon & Details */}
-                  <div className="flex items-start sm:items-center gap-3.5 flex-1 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-zinc-100 group-hover:bg-zinc-900 group-hover:text-white text-zinc-900 flex items-center justify-center shrink-0 transition-colors shadow-2xs">
-                      {renderDeckIcon(deck.iconName, 'w-5 h-5')}
+                  <div className="flex items-center gap-3.5 flex-1 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-100 group-hover:bg-zinc-900 group-hover:text-white text-zinc-900 flex items-center justify-center shrink-0 transition-colors">
+                      {renderDeckIcon(deck.iconName, 'w-4 h-4')}
                     </div>
 
                     <div className="flex-1 min-w-0">
@@ -295,34 +284,23 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
                         <span className="text-xs font-bold px-2 py-0.5 rounded-md bg-zinc-100 text-zinc-800 border border-zinc-200">
                           {deck.shortName}
                         </span>
-                        <span className="text-[11px] font-semibold text-zinc-500 bg-zinc-50 px-2 py-0.5 rounded-md">
+                        <span className="text-[11px] font-medium text-zinc-500 bg-zinc-50 px-2 py-0.5 rounded-md">
                           {deck.categoryLabel}
                         </span>
-                        {deck.isDefault ? (
-                          <span className="text-[10px] text-zinc-400">ระบบเริ่มต้น</span>
-                        ) : (
-                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
-                            กำหนดเอง
-                          </span>
-                        )}
                       </div>
 
                       <h4 className="font-bold text-sm text-zinc-900 mt-1 truncate">
                         {deck.name}
                       </h4>
-                      <p className="text-xs text-zinc-500 mt-0.5 line-clamp-1">
-                        {deck.description}
-                      </p>
                     </div>
                   </div>
 
                   {/* Right: Card Count & Action Buttons */}
-                  <div className="flex items-center justify-between sm:justify-end gap-2.5 w-full sm:w-auto pt-3 sm:pt-0 border-t sm:border-t-0 border-zinc-100">
+                  <div className="flex items-center justify-between sm:justify-end gap-2 w-full sm:w-auto pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100">
                     <div className="text-left sm:text-right pr-2">
-                      <span className="text-sm font-extrabold text-zinc-900 block leading-tight">
-                        {cardCount}
+                      <span className="text-xs font-bold text-zinc-700">
+                        {cardCount} มาตรา
                       </span>
-                      <span className="text-[11px] text-zinc-500">มาตรา</span>
                     </div>
 
                     {/* Open Deck Reader */}
@@ -332,7 +310,7 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
                         onClose();
                       }}
                       className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-zinc-100 hover:bg-zinc-200 text-zinc-900 rounded-xl transition-colors cursor-pointer"
-                      title="เปิดอ่านการ์ดใน Deck นี้"
+                      title="เปิดอ่าน"
                     >
                       <span>เปิดอ่าน</span>
                       <ArrowRight className="w-3.5 h-3.5" />
@@ -341,8 +319,8 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
                     {/* Export Single Deck */}
                     <button
                       onClick={() => exportDeckToJson(deck, cards)}
-                      className="p-2 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors cursor-pointer"
-                      title={`ส่งออกสำรับ "${deck.name}" เป็นไฟล์ JSON`}
+                      className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors cursor-pointer"
+                      title="ส่งออก JSON"
                     >
                       <Download className="w-4 h-4" />
                     </button>
@@ -350,8 +328,8 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
                     {/* Edit Deck */}
                     <button
                       onClick={() => onOpenEditDeck(deck)}
-                      className="p-2 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors cursor-pointer"
-                      title="แก้ไขข้อมูลสำรับ"
+                      className="p-1.5 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 rounded-xl transition-colors cursor-pointer"
+                      title="แก้ไข"
                     >
                       <Edit3 className="w-4 h-4" />
                     </button>
@@ -359,8 +337,8 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
                     {/* Delete Deck */}
                     <button
                       onClick={() => onOpenDeleteDeck(deck)}
-                      className="p-2 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                      title="ลบสำรับนี้"
+                      className="p-1.5 text-zinc-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                      title="ลบ"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -372,10 +350,10 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
         </div>
 
         {/* Footer: Bottom actions */}
-        <div className="px-6 py-3.5 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between">
+        <div className="px-6 py-3 border-t border-zinc-200 bg-zinc-50 flex items-center justify-between">
           <button
             onClick={() => {
-              if (window.confirm('คุณต้องการรีเซ็ตสำรับและตัวบทกฎหมายทั้งหมดกลับเป็นค่าเริ่มต้นเริ่มต้นของระบบใช่หรือไม่?')) {
+              if (window.confirm('ต้องการรีเซ็ตสำรับและตัวบททั้งหมดกลับสู่ค่าเริ่มต้นใช่หรือไม่?')) {
                 onResetData();
                 onClose();
               }
@@ -383,12 +361,12 @@ export const DeckManagerModal: React.FC<DeckManagerModalProps> = ({
             className="flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-700 hover:underline cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>รีเซ็ตสำรับทั้งหมดกลับสู่ค่าเริ่มต้น</span>
+            <span>รีเซ็ตค่าเริ่มต้น</span>
           </button>
 
           <button
             onClick={onClose}
-            className="px-5 py-2 text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors shadow-xs cursor-pointer"
+            className="px-5 py-2 text-xs font-bold bg-zinc-900 hover:bg-zinc-800 text-white rounded-xl transition-colors shadow-2xs cursor-pointer"
           >
             เสร็จสิ้น
           </button>

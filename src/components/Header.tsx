@@ -48,14 +48,9 @@ export const Header: React.FC<HeaderProps> = ({
             <Scale className="w-5 h-5 text-zinc-100" />
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h1 className="font-bold text-base sm:text-lg text-zinc-900 leading-none tracking-tight">Statutler</h1>
-              <span className="text-[10px] font-bold bg-zinc-100 text-zinc-600 px-2 py-0.5 rounded-full border border-zinc-200">
-                Deck Reader
-              </span>
-            </div>
+            <h1 className="font-bold text-base sm:text-lg text-zinc-900 leading-none tracking-tight">Statutler</h1>
             <p className="text-[11px] text-zinc-500 mt-0.5 hidden sm:block">
-              {selectedDeck ? `กำลังอ่าน: ${selectedDeck.shortName}` : `${totalDecksCount} สำรับ • ${totalCardsCount} มาตรา`}
+              {selectedDeck ? selectedDeck.shortName : `${totalDecksCount} สำรับ • ${totalCardsCount} มาตรา`}
             </p>
           </div>
         </div>
@@ -66,7 +61,7 @@ export const Header: React.FC<HeaderProps> = ({
           <input
             id="law-search-input"
             type="text"
-            placeholder="ค้นหามาตรา, ชื่อหัวข้อ, คีย์เวิร์ด..."
+            placeholder="ค้นหามาตรา, คำสำคัญ..."
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             className="w-full pl-9 pr-4 py-2 text-xs sm:text-sm bg-zinc-100/80 hover:bg-zinc-100 focus:bg-white text-zinc-900 placeholder-zinc-400 rounded-xl border border-transparent focus:border-zinc-300 focus:outline-none transition-all"
@@ -88,21 +83,10 @@ export const Header: React.FC<HeaderProps> = ({
             id="header-deck-manager-btn"
             onClick={onOpenDeckManagerModal}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 transition-colors cursor-pointer"
-            title="จัดการและสำรองข้อมูลสำรับกฎหมาย"
+            title="จัดการสำรับ"
           >
             <Settings className="w-3.5 h-3.5 text-zinc-600" />
-            <span className="hidden md:inline">จัดการสำรับ</span>
-          </button>
-
-          {/* New Deck Button */}
-          <button
-            id="header-create-deck-btn"
-            onClick={onOpenCreateDeckModal}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 transition-colors cursor-pointer"
-            title="สร้างสำรับกฎหมายใหม่"
-          >
-            <FolderPlus className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="hidden md:inline">สร้าง Deck</span>
+            <span className="hidden md:inline">สำรับ</span>
           </button>
 
           {/* Import Law */}
@@ -110,7 +94,7 @@ export const Header: React.FC<HeaderProps> = ({
             id="import-law-header-btn"
             onClick={onOpenImportModal}
             className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-zinc-100 hover:bg-zinc-200 text-zinc-900 border border-zinc-200 transition-colors cursor-pointer"
-            title="นำเข้าตัวบทกฎหมายจากข้อความ/ไฟล์"
+            title="นำเข้าตัวบทกฎหมาย"
           >
             <UploadCloud className="w-3.5 h-3.5 text-zinc-700" />
             <span className="hidden lg:inline">นำเข้า</span>
@@ -121,7 +105,7 @@ export const Header: React.FC<HeaderProps> = ({
             id="add-section-header-btn"
             onClick={onOpenAddModal}
             className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white transition-colors cursor-pointer shadow-2xs"
-            title="เพิ่มมาตราใหม่"
+            title="เพิ่มมาตรา"
           >
             <Plus className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">เพิ่มมาตรา</span>
