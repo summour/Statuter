@@ -562,7 +562,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
         {/* Section 5: App Info */}
         <div className="text-center pt-4 text-xs text-zinc-400 space-y-1">
-          <div>Statutler • ท่องตัวบทกฎหมายไทย</div>
+          <div>Statuter • ท่องตัวบทกฎหมายไทย</div>
           <div>{totalDecksCount} สำรับ • {totalCardsCount} มาตรา</div>
         </div>
       </div>

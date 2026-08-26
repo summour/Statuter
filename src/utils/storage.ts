@@ -107,7 +107,7 @@ export function exportAllDataToJson(decks: LawDeck[], cards: LawCard[]): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `law_library_backup_${Date.now()}.json`;
+  a.download = `statuter_backup_${Date.now()}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }

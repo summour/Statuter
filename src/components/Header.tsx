@@ -98,7 +98,7 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="w-7 h-7 rounded-xl bg-zinc-900 text-white flex items-center justify-center shadow-2xs">
                     <Scale className="w-3.5 h-3.5 text-zinc-100" />
                   </div>
-                  <span className="font-bold text-base text-zinc-900 tracking-tight">Statutler</span>
+                  <span className="font-bold text-base text-zinc-900 tracking-tight">Statuter</span>
                 </div>
               )}
             </div>
