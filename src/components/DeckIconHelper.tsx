@@ -1,5 +1,6 @@
 import React from 'react';
 import { 
+  Shield,
   ShieldAlert, 
   Scale, 
   Gavel, 
@@ -13,6 +14,7 @@ import {
   Bookmark, 
   Folder, 
   Sparkles, 
+  Star,
   Scroll, 
   Users, 
   Building2, 
@@ -20,7 +22,6 @@ import {
   HeartHandshake, 
   Compass, 
   AlertCircle,
-  HelpCircle,
   LucideIcon
 } from 'lucide-react';
 
@@ -31,19 +32,20 @@ export interface IconOption {
 }
 
 export const DECK_ICON_OPTIONS: IconOption[] = [
+  { name: 'BookOpen', label: 'ตำรา/หนังสือ', component: BookOpen },
   { name: 'Scale', label: 'ตราชู (ความยุติธรรม)', component: Scale },
   { name: 'Gavel', label: 'ค้อนศาล (วิธีพิจารณา)', component: Gavel },
-  { name: 'ShieldAlert', label: 'โล่ป้องกัน (อาญา/ความปลอดภัย)', component: ShieldAlert },
+  { name: 'Shield', label: 'โล่ป้องกัน (ความมั่นคง/อาญา)', component: Shield },
   { name: 'FileText', label: 'เอกสาร/สัญญา', component: FileText },
   { name: 'Landmark', label: 'รัฐธรรมนูญ/สถาบัน', component: Landmark },
-  { name: 'Lock', label: 'กุญแจ (ข้อมูลส่วนบุคคล/ความลับ)', component: Lock },
-  { name: 'BookOpen', label: 'ตำรา/หนังสือ', component: BookOpen },
   { name: 'Briefcase', label: 'กระเป๋าทำงาน (แรงงาน/พาณิชย์)', component: Briefcase },
+  { name: 'Bookmark', label: 'คั่นหน้า/มาตราสำคัญ', component: Bookmark },
+  { name: 'Star', label: 'ดาว/คัดเก็ง', component: Star },
+  { name: 'Folder', label: 'แฟ้มเอกสาร', component: Folder },
+  { name: 'Lock', label: 'กุญแจ (ข้อมูลส่วนบุคคล/ความลับ)', component: Lock },
   { name: 'GraduationCap', label: 'การศึกษา/สอบเนติ', component: GraduationCap },
   { name: 'Award', label: 'เหรียญรางวัล/เกียรติประวัติ', component: Award },
-  { name: 'Bookmark', label: 'คั่นหน้า/มาตราสำคัญ', component: Bookmark },
-  { name: 'Folder', label: 'แฟ้มเอกสาร', component: Folder },
-  { name: 'Sparkles', label: 'พิเศษ/คัดเก็ง', component: Sparkles },
+  { name: 'Sparkles', label: 'พิเศษ', component: Sparkles },
   { name: 'Scroll', label: 'ม้วนคัมภีร์/บทกฎหมาย', component: Scroll },
   { name: 'Users', label: 'บุคคล/ครอบครัว/มรดก', component: Users },
   { name: 'Building2', label: 'ทรัพย์สิน/อสังหาริมทรัพย์', component: Building2 },
@@ -55,6 +57,8 @@ export const DECK_ICON_OPTIONS: IconOption[] = [
 
 export const renderDeckIcon = (iconName: string, className: string = 'w-5 h-5') => {
   switch (iconName) {
+    case 'Shield':
+      return <Shield className={className} />;
     case 'ShieldAlert':
       return <ShieldAlert className={className} />;
     case 'Scale':
@@ -77,6 +81,8 @@ export const renderDeckIcon = (iconName: string, className: string = 'w-5 h-5') 
       return <Bookmark className={className} />;
     case 'Folder':
       return <Folder className={className} />;
+    case 'Star':
+      return <Star className={className} />;
     case 'Sparkles':
       return <Sparkles className={className} />;
     case 'Scroll':
@@ -93,6 +99,7 @@ export const renderDeckIcon = (iconName: string, className: string = 'w-5 h-5') 
       return <Compass className={className} />;
     case 'AlertCircle':
       return <AlertCircle className={className} />;
+    case 'BookOpen':
     default:
       return <BookOpen className={className} />;
   }
