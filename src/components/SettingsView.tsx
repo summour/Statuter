@@ -1,52 +1,32 @@
 import React, { useState, useRef } from 'react';
 import { 
-  Hash, 
-  Plus, 
-  UploadCloud, 
-  Download, 
   RotateCcw, 
-  Trash2, 
-  Edit3, 
   ChevronRight, 
   FileText, 
   LogOut,
   Cloud,
   CloudUpload,
   CloudDownload,
+  Download,
   Loader2
 } from 'lucide-react';
-import { LawDeck, LawCard, NumeralSystem } from '../types';
-import { renderDeckIcon } from './DeckIconHelper';
-import { exportDeckToJson, exportAllDataToJson } from '../utils/storage';
+import { LawDeck, LawCard } from '../types';
+import { exportAllDataToJson } from '../utils/storage';
 import { useAuth } from '../context/AuthContext';
 import { syncDataToCloud, fetchUserDataFromCloud } from '../lib/firebase';
 
 interface SettingsViewProps {
-  numeralSystem: NumeralSystem;
-  onNumeralSystemChange: (system: NumeralSystem) => void;
   decks: LawDeck[];
   cards: LawCard[];
-  onOpenCreateDeck: () => void;
-  onOpenEditDeck: (deck: LawDeck) => void;
-  onOpenDeleteDeck: (deck: LawDeck) => void;
-  onOpenImportModal: () => void;
   onImportBackup: (importedDecks: LawDeck[], importedCards: LawCard[]) => void;
   onResetData: () => void;
-  onSelectDeckToRead: (deck: LawDeck) => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
-  numeralSystem,
-  onNumeralSystemChange,
   decks,
   cards,
-  onOpenCreateDeck,
-  onOpenEditDeck,
-  onOpenDeleteDeck,
-  onOpenImportModal,
   onImportBackup,
   onResetData,
-  onSelectDeckToRead,
 }) => {
   const { user, loading: authLoading, signInGoogle, signOut } = useAuth();
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
@@ -177,33 +157,32 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-6 pt-[calc(env(safe-area-inset-top,0px)+1.5rem)] pb-[calc(env(safe-area-inset-bottom,0px)+7rem)]">
       {/* Title */}
-      <div className="mb-6">
+      <div className="mb-4">
         <h1 className="text-2xl font-bold text-zinc-900 tracking-tight">ตั้งค่า</h1>
-        <p className="text-xs sm:text-sm text-zinc-500 mt-1">บัญชีผู้ใช้ ระบบตัวเลข จัดการสำรับ และสำรองข้อมูล</p>
       </div>
 
       {/* Notification Toast */}
       {statusMsg && (
-        <div className="mb-6 p-3.5 bg-zinc-900 text-white rounded-2xl text-xs font-medium flex items-center justify-between shadow-lg animate-in fade-in duration-200">
+        <div className="mb-4 p-3.5 bg-zinc-900 text-white rounded-2xl text-xs font-medium flex items-center justify-between shadow-lg animate-in fade-in duration-200">
           <span>{statusMsg}</span>
           <button onClick={() => setStatusMsg(null)} className="text-zinc-400 hover:text-white ml-3 cursor-pointer">✕</button>
         </div>
       )}
 
-      <div className="space-y-6">
+      <div className="space-y-4 sm:space-y-5">
         {/* Section 0: Google Account & Cloud Sync */}
         <div>
-          <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-2">
-            บัญชีผู้ใช้และคลาวด์ (Google)
+          <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-1.5">
+            บัญชีผู้ใช้
           </div>
           <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-2xs overflow-hidden">
             {authLoading ? (
-              <div className="p-6 flex items-center justify-center gap-2 text-xs text-zinc-400">
+              <div className="p-4 flex items-center justify-center gap-2 text-xs text-zinc-400">
                 <Loader2 className="w-4 h-4 animate-spin" />
-                กำลังโหลดข้อมูลบัญชี...
+                กำลังโหลด...
               </div>
             ) : user ? (
-              <div className="p-4 sm:p-5 space-y-4">
+              <div className="p-3.5 sm:p-4 space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0">
                     {user.photoURL ? (
@@ -211,18 +190,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         src={user.photoURL} 
                         alt={user.displayName || 'Google User'} 
                         referrerPolicy="no-referrer"
-                        className="w-10 h-10 rounded-full border border-zinc-200 object-cover shadow-2xs"
+                        className="w-9 h-9 rounded-full border border-zinc-200 object-cover shadow-2xs"
                       />
                     ) : (
-                      <div className="w-10 h-10 rounded-full bg-zinc-900 text-white flex items-center justify-center font-bold text-sm">
+                      <div className="w-9 h-9 rounded-full bg-zinc-900 text-white flex items-center justify-center font-bold text-xs">
                         {user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
                       </div>
                     )}
                     <div className="min-w-0">
-                      <div className="text-sm font-bold text-zinc-900 truncate">
+                      <div className="text-sm font-semibold text-zinc-900 truncate">
                         {user.displayName || 'Google User'}
                       </div>
-                      <div className="text-xs text-zinc-500 truncate">
+                      <div className="text-xs text-zinc-400 truncate">
                         {user.email}
                       </div>
                     </div>
@@ -244,45 +223,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 {/* Cloud Sync Actions */}
-                <div className="pt-3 border-t border-zinc-100 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div className="pt-2.5 border-t border-zinc-100 grid grid-cols-2 gap-2">
                   <button
                     id="cloud-sync-push-btn"
                     onClick={handleSyncToCloud}
                     disabled={isSyncing || isPulling}
-                    className="p-3 rounded-xl bg-zinc-900 text-white hover:bg-black transition-all flex items-center justify-center gap-2 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
+                    className="p-2.5 rounded-xl bg-zinc-900 text-white hover:bg-black transition-all flex items-center justify-center gap-1.5 text-xs font-semibold shadow-xs cursor-pointer disabled:opacity-50"
                   >
                     {isSyncing ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <CloudUpload className="w-4 h-4" />
+                      <CloudUpload className="w-3.5 h-3.5" />
                     )}
-                    <span>ซิงค์ข้อมูลขึ้นคลาวด์ ({decks.length} สำรับ)</span>
+                    <span>ซิงค์ขึ้นคลาวด์</span>
                   </button>
 
                   <button
                     id="cloud-sync-pull-btn"
                     onClick={handlePullFromCloud}
                     disabled={isSyncing || isPulling}
-                    className="p-3 rounded-xl bg-zinc-100 text-zinc-800 hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 text-xs font-semibold border border-zinc-200/80 cursor-pointer disabled:opacity-50"
+                    className="p-2.5 rounded-xl bg-zinc-100 text-zinc-800 hover:bg-zinc-200 transition-all flex items-center justify-center gap-1.5 text-xs font-semibold border border-zinc-200/80 cursor-pointer disabled:opacity-50"
                   >
                     {isPulling ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
                     ) : (
-                      <CloudDownload className="w-4 h-4" />
+                      <CloudDownload className="w-3.5 h-3.5" />
                     )}
-                    <span>กู้คืนข้อมูลจากคลาวด์</span>
+                    <span>กู้คืนจากคลาวด์</span>
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                <div className="flex items-center gap-3 text-center sm:text-left">
-                  <div className="w-10 h-10 rounded-2xl bg-zinc-100 flex items-center justify-center text-zinc-700 shrink-0">
-                    <Cloud className="w-5 h-5" />
+              <div className="p-3.5 sm:p-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700 shrink-0">
+                    <Cloud className="w-4 h-4" />
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-zinc-900">เชื่อมต่อ Google Account</div>
-                    <div className="text-xs text-zinc-500">ซิงค์สำรับกฎหมายและบันทึกความจำข้ามอุปกรณ์</div>
+                  <div className="text-sm font-semibold text-zinc-900">
+                    เชื่อมต่อ Google
                   </div>
                 </div>
 
@@ -290,12 +268,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   id="google-sign-in-btn"
                   onClick={handleGoogleLogin}
                   disabled={authActionLoading}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-zinc-900 text-white hover:bg-black transition-all flex items-center justify-center gap-2.5 text-xs font-semibold shadow-xs cursor-pointer shrink-0 disabled:opacity-50"
+                  className="px-3.5 py-2 rounded-xl bg-zinc-900 text-white hover:bg-black transition-all flex items-center justify-center gap-2 text-xs font-semibold shadow-xs cursor-pointer shrink-0 disabled:opacity-50"
                 >
                   {authActionLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
                   ) : (
-                    <svg className="w-4 h-4" viewBox="0 0 24 24">
+                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
                         d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -321,161 +299,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         </div>
 
-        {/* Section 1: Numeral System */}
+        {/* Section 1: Backup & Reset */}
         <div>
-          <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-2">
-            การแสดงผลตัวเลข
-          </div>
-          <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-2xs overflow-hidden">
-            <div className="p-4 flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700">
-                  <Hash className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-zinc-900">รูปแบบตัวเลข</div>
-                  <div className="text-xs text-zinc-500">เลือกรูปแบบที่แสดงในเลขมาตราและข้อความ</div>
-                </div>
-              </div>
-
-              {/* Segmented Switch */}
-              <div className="flex items-center bg-zinc-100 rounded-xl p-1 border border-zinc-200">
-                <button
-                  id="settings-numeral-arabic-btn"
-                  onClick={() => onNumeralSystemChange('arabic')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    numeralSystem === 'arabic'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-500 hover:text-zinc-800'
-                  }`}
-                >
-                  อารบิก (123)
-                </button>
-                <button
-                  id="settings-numeral-thai-btn"
-                  onClick={() => onNumeralSystemChange('thai')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                    numeralSystem === 'thai'
-                      ? 'bg-white text-zinc-900 shadow-xs'
-                      : 'text-zinc-500 hover:text-zinc-800'
-                  }`}
-                >
-                  ไทย (๑๒๓)
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Section 2: Deck Operations */}
-        <div>
-          <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-2">
-            สำรับกฎหมาย
-          </div>
-          <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-2xs overflow-hidden divide-y divide-zinc-100">
-            {/* Create Deck */}
-            <button
-              id="settings-create-deck-btn"
-              onClick={onOpenCreateDeck}
-              className="w-full p-4 flex items-center justify-between hover:bg-zinc-50/80 transition-colors text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-zinc-900 text-white flex items-center justify-center">
-                  <Plus className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-zinc-900">สร้างสำรับใหม่</div>
-                  <div className="text-xs text-zinc-500">สร้างหมวดหรือชุดกฎหมายที่กำหนดเอง</div>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-zinc-400" />
-            </button>
-
-            {/* Import Laws */}
-            <button
-              id="settings-import-law-btn"
-              onClick={onOpenImportModal}
-              className="w-full p-4 flex items-center justify-between hover:bg-zinc-50/80 transition-colors text-left cursor-pointer"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-800 flex items-center justify-center">
-                  <UploadCloud className="w-4 h-4" />
-                </div>
-                <div>
-                  <div className="text-sm font-medium text-zinc-900">นำเข้าตัวบทกฎหมาย</div>
-                  <div className="text-xs text-zinc-500">วางข้อความกฎหมายเพื่อแยกรายมาตราอัตโนมัติ</div>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-zinc-400" />
-            </button>
-          </div>
-        </div>
-
-        {/* Section 3: Decks List Management */}
-        <div>
-          <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-2 flex items-center justify-between">
-            <span>สำรับทั้งหมด ({decks.length})</span>
-          </div>
-          <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-2xs overflow-hidden divide-y divide-zinc-100">
-            {decks.length === 0 ? (
-              <div className="p-6 text-center text-xs text-zinc-500">
-                ยังไม่มีสำรับกฎหมาย
-              </div>
-            ) : (
-              decks.map(deck => {
-                const deckCount = cards.filter(c => c.deckId === deck.id).length;
-                return (
-                  <div key={deck.id} className="p-3.5 sm:p-4 flex items-center justify-between gap-3 hover:bg-zinc-50/50 transition-colors">
-                    <div 
-                      onClick={() => onSelectDeckToRead(deck)}
-                      className="flex items-center gap-3 min-w-0 flex-1 cursor-pointer group"
-                    >
-                      <div className="w-8 h-8 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-700 shrink-0 group-hover:bg-zinc-200 transition-colors">
-                        {renderDeckIcon(deck.iconName, "w-4 h-4")}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-sm font-medium text-zinc-900 truncate group-hover:text-black">
-                          {deck.name}
-                        </div>
-                        <div className="text-xs text-zinc-400">
-                          {deck.shortName} • {deckCount} มาตรา
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        onClick={() => exportDeckToJson(deck, cards.filter(c => c.deckId === deck.id))}
-                        className="p-2 text-zinc-400 hover:text-zinc-700 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
-                        title="ส่งออกสำรับนี้ (JSON)"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => onOpenEditDeck(deck)}
-                        className="p-2 text-zinc-400 hover:text-zinc-700 rounded-lg hover:bg-zinc-100 transition-colors cursor-pointer"
-                        title="แก้ไขสำรับ"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => onOpenDeleteDeck(deck)}
-                        className="p-2 text-zinc-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                        title="ลบสำรับ"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </div>
-
-        {/* Section 4: Backup & Reset */}
-        <div>
-          <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-2">
+          <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider px-3 mb-1.5">
             สำรองและจัดการข้อมูล
           </div>
           <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-2xs overflow-hidden divide-y divide-zinc-100">
@@ -486,30 +312,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 exportAllDataToJson(decks, cards);
                 showStatus('ส่งออกไฟล์สำรองข้อมูล JSON เรียบร้อยแล้ว');
               }}
-              className="w-full p-4 flex items-center justify-between hover:bg-zinc-50/80 transition-colors text-left cursor-pointer"
+              className="w-full p-3.5 sm:p-4 flex items-center justify-between hover:bg-zinc-50/80 transition-colors text-left cursor-pointer"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-700 flex items-center justify-center">
                   <Download className="w-4 h-4" />
                 </div>
-                <div>
-                  <div className="text-sm font-medium text-zinc-900">สำรองข้อมูลทั้งหมด (Export JSON)</div>
-                  <div className="text-xs text-zinc-500">บันทึกทั้ง {decks.length} สำรับ และ {cards.length} มาตรา ลงในเครื่อง</div>
-                </div>
+                <div className="text-sm font-semibold text-zinc-900">ส่งออกข้อมูลทั้งหมด (JSON)</div>
               </div>
               <ChevronRight className="w-4 h-4 text-zinc-400" />
             </button>
 
             {/* Restore from JSON */}
-            <label className="w-full p-4 flex items-center justify-between hover:bg-zinc-50/80 transition-colors text-left cursor-pointer">
+            <label className="w-full p-3.5 sm:p-4 flex items-center justify-between hover:bg-zinc-50/80 transition-colors text-left cursor-pointer">
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-700 flex items-center justify-center">
                   <FileText className="w-4 h-4" />
                 </div>
-                <div>
-                  <div className="text-sm font-medium text-zinc-900">กู้คืนจากไฟล์สำรอง (Import JSON)</div>
-                  <div className="text-xs text-zinc-500">นำเข้าไฟล์สำรองข้อมูลที่เคยบันทึกไว้</div>
-                </div>
+                <div className="text-sm font-semibold text-zinc-900">นำเข้าไฟล์สำรอง (JSON)</div>
               </div>
               <input 
                 type="file" 
@@ -522,7 +342,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </label>
 
             {/* Reset Data */}
-            <div className="p-4">
+            <div className="p-3.5 sm:p-4">
               {!showResetConfirm ? (
                 <button
                   id="settings-reset-data-btn"
@@ -533,17 +353,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     <div className="w-8 h-8 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
                       <RotateCcw className="w-4 h-4" />
                     </div>
-                    <div>
-                      <div className="text-sm font-medium">ล้างข้อมูลทั้งหมดในเครื่อง</div>
-                      <div className="text-xs text-zinc-400">ลบสำรับและมาตราทั้งหมดที่บันทึกไว้</div>
-                    </div>
+                    <div className="text-sm font-semibold">ล้างข้อมูลทั้งหมด</div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-zinc-400" />
                 </button>
               ) : (
                 <div className="bg-rose-50/80 rounded-xl p-3 border border-rose-200 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <div className="text-xs text-rose-900 font-medium text-center sm:text-left">
-                    ยืนยันการล้างข้อมูลทั้งหมด? การกระทำนี้ไม่สามารถย้อนกลับได้
+                    ยืนยันการล้างข้อมูลทั้งหมด?
                   </div>
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <button
@@ -570,7 +387,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
 
         {/* Section 5: App Info */}
-        <div className="text-center pt-4 text-xs text-zinc-400 space-y-1">
+        <div className="text-center pt-3 text-xs text-zinc-400 space-y-0.5">
           <div>Statuter • ท่องตัวบทกฎหมายไทย</div>
           <div>{totalDecksCount} สำรับ • {totalCardsCount} มาตรา</div>
         </div>

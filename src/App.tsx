@@ -442,22 +442,10 @@ export function App() {
         ) : (
           /* iOS Settings Tab */
           <SettingsView
-            numeralSystem={numeralSystem}
-            onNumeralSystemChange={setNumeralSystem}
             decks={decks}
             cards={cards}
-            onOpenCreateDeck={handleOpenCreateDeck}
-            onOpenEditDeck={handleOpenEditDeck}
-            onOpenDeleteDeck={handleOpenDeleteDeck}
-            onOpenImportModal={() => setIsImportModalOpen(true)}
             onImportBackup={handleImportBackup}
             onResetData={handleResetData}
-            onSelectDeckToRead={(deck) => {
-              setSelectedDeck(deck);
-              setDeckViewMode('overview');
-              setActiveCardId(undefined);
-              setActiveTab('home');
-            }}
           />
         )}
       </main>
