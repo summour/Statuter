@@ -264,28 +264,6 @@ export function App() {
 
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-[#111111] flex flex-col font-sans selection:bg-black selection:text-white">
-      {/* Top Header only on Home or simplified */}
-      {activeTab === 'home' && (
-        <Header
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
-          selectedDeck={selectedDeck === 'all' ? null : selectedDeck}
-          onSelectDeck={() => {
-            setSelectedDeck(null);
-            setActiveCardId(undefined);
-            setSearchQuery('');
-          }}
-          onOpenAddModal={() => {
-            setPreselectedDeckId(selectedDeck && selectedDeck !== 'all' ? selectedDeck.id : undefined);
-            setIsAddModalOpen(true);
-          }}
-          onOpenImportModal={() => setIsImportModalOpen(true)}
-          totalCardsCount={cards.length}
-          totalDecksCount={decks.length}
-          numeralSystem={numeralSystem}
-        />
-      )}
-
       {/* Floating Notification */}
       {importNotification && (
         <div className="fixed bottom-24 right-6 z-50 bg-zinc-900 text-white px-5 py-3.5 rounded-2xl shadow-xl border border-zinc-700 flex items-center gap-3 animate-in slide-in-from-bottom-5 duration-300">
