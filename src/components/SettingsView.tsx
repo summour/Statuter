@@ -68,8 +68,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       const loggedUser = await signInGoogle();
       showStatus(`เข้าสู่ระบบสำเร็จ: ${loggedUser.displayName || loggedUser.email}`);
     } catch (err: any) {
-      if (err?.code !== 'auth/popup-closed-by-user') {
-        showStatus('เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง');
+      console.error('Google Sign-in error details:', err);
+      const errorCode = err?.code || '';
+      if (errorCode === 'auth/popup-closed-by-user') {
+        // User closed popup, do nothing
+      } else if (errorCode === 'auth/unauthorized-domain') {
+        showStatus(`โดเมน ${window.location.hostname} ยังไม่ได้รับอนุญาตใน Firebase Auth (Authorized Domains) หรือให้ลองเปิดในแท็บใหม่`);
+      } else if (errorCode === 'auth/operation-not-allowed') {
+        showStatus('ยังไม่ได้เปิดใช้งาน Google Sign-in ใน Firebase Console (Authentication > Sign-in method)');
+      } else if (errorCode === 'auth/popup-blocked') {
+        showStatus('เบราว์เซอร์บล็อกหน้าต่าง Pop-up กรุณาอนุญาต Pop-up หรือเปิดเว็บในแท็บใหม่');
+      } else {
+        showStatus(`เกิดข้อผิดพลาด (${errorCode || err?.message || 'ไม่ทราบสาเหตุ'}): กรุณาลองเปิดเว็บในแท็บใหม่`);
       }
     } finally {
       setAuthActionLoading(false);
