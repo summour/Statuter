@@ -58,16 +58,24 @@ export const DeckReader: React.FC<DeckReaderProps> = ({
   // Available chapters in this deck for quick filtering
   const availableChapters = useMemo(() => {
     const chapters = new Set<string>();
+    let hasUncategorized = false;
     rawDeckCards.forEach(c => {
-      if (c.chapter) chapters.add(c.chapter);
+      if (c.chapter) {
+        chapters.add(c.chapter);
+      } else {
+        hasUncategorized = true;
+      }
     });
+    if (hasUncategorized && !chapters.has('บททั่วไป')) {
+      chapters.add('บททั่วไป');
+    }
     return Array.from(chapters);
   }, [rawDeckCards]);
 
   // Filtered deck cards
   const deckCards = useMemo(() => {
     if (chapterFilter === 'all') return rawDeckCards;
-    return rawDeckCards.filter(c => c.chapter === chapterFilter);
+    return rawDeckCards.filter(c => c.chapter === chapterFilter || (!c.chapter && chapterFilter === 'บททั่วไป'));
   }, [rawDeckCards, chapterFilter]);
 
   // If an initial card was requested, jump to it

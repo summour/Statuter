@@ -67,8 +67,8 @@ export function isSectionHeader(line: string): boolean {
   return SECTION_START_REGEX.test(line.trim());
 }
 
-// Regex for standalone structural divisions in Thai law (e.g. บทเฉพาะกาล, บทกำหนดโทษ, บทเบ็ดเสร็จทั่วไป, บทบัญญัติทั่วไป)
-const STANDALONE_CHAPTER_REGEX = /^\(?\s*(บทเฉพาะกาล|บทเฉพาะการ|บทกำหนดโทษ|บทเบ็ดเสร็จทั่วไป|บทบัญญัติทั่วไป|บทส่งท้าย)\s*\)?(?:\s*[:：-])?(?:\s*\[[0-9\u0E50-\u0E59a-zA-Z\s]+\])?(?:\s*\(.*?\))?$/u;
+// Regex for standalone structural divisions in Thai law (e.g. บททั่วไป, ข้อความเบื้องต้น, บทเบ็ดเสร็จทั่วไป, บทบัญญัติทั่วไป, บทนำ, บทนิยาม, คำปรารภ, บทเฉพาะกาล, บทกำหนดโทษ, บทส่งท้าย)
+const STANDALONE_CHAPTER_REGEX = /^\(?\s*(บททั่วไป|ข้อความเบื้องต้น|บทเบ็ดเสร็จทั่วไป|บทบัญญัติทั่วไป|บทนำ|บทนิยาม|คำปรารภ|บทเฉพาะกาล|บทเฉพาะการ|บทกำหนดโทษ|บทส่งท้าย)\s*\)?(?:\s*[:：-])?(?:\s*\[[0-9\u0E50-\u0E59a-zA-Z\s]+\])?(?:\s*\(.*?\))?$/u;
 
 export function isStandaloneChapterHeader(line: string): boolean {
   const trimmed = stripFootnotes(line.trim()).trim();
@@ -433,13 +433,18 @@ export function parseThaiLawText(rawText: string, options: ParseOptions = {}): I
       if (defMatch) extractedTitle = defMatch[1];
     }
 
+    // Fallback: If section appears before any hierarchy is declared, assign to 'บททั่วไป'
+    const assignedBook = currentBook || undefined;
+    const assignedTitleStructure = currentTitleStructure || undefined;
+    const assignedChapter = currentChapter || (!assignedBook && !assignedTitleStructure ? 'บททั่วไป' : undefined);
+
     const parsedSec: ParsedLawSection = {
       tempId: `sec_${Date.now()}_${sections.length + 1}_${Math.random().toString(36).substring(2, 7)}`,
       sectionNumber: cleanSecNum,
       sectionRawNum: currentSectionRawNum,
-      book: currentBook || undefined,
-      titleStructure: currentTitleStructure || undefined,
-      chapter: currentChapter || undefined,
+      book: assignedBook,
+      titleStructure: assignedTitleStructure,
+      chapter: assignedChapter,
       part: currentPart || undefined,
       title: extractedTitle,
       fullText: processedFullText,
