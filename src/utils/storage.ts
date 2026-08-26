@@ -320,13 +320,13 @@ export async function loadOfficialDecksFromLocalDB(): Promise<OfficialLawDeck[]>
       req.onerror = () => reject(req.error);
     });
 
-    if (decks.length > 0) {
-      return decks.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+    // Remove legacy sample deck if still cached locally
+    const filteredDecks = decks.filter(d => d.id !== 'official_civil_code_standard');
+    if (filteredDecks.length !== decks.length) {
+      deleteOfficialDeckFromLocalDB('official_civil_code_standard').catch(() => {});
     }
 
-    // Auto-seed sample Civil and Commercial Code if completely empty
-    const seeded = await seedDefaultOfficialCivilCode();
-    return seeded ? [seeded.deck] : [];
+    return filteredDecks.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   } catch (err) {
     console.error('Error loading official decks from IndexedDB:', err);
     return [];
@@ -445,54 +445,10 @@ export async function updateOfficialDeckStatusInLocalDB(deckId: string, isPublis
   }
 }
 
-// Helper to auto-seed default official Civil and Commercial Code (ป.พ.พ.)
+// Helper to clean legacy sample official Civil and Commercial Code (ป.พ.พ.)
 export async function seedDefaultOfficialCivilCode(): Promise<{ deck: OfficialLawDeck; cards: LawCard[] } | null> {
-  try {
-    const report = parseThaiLawText(SAMPLE_CIVIL_CODE_TEXT);
-    if (!report || report.sections.length === 0) return null;
-
-    const deck: OfficialLawDeck = {
-      id: 'official_civil_code_standard',
-      name: 'ประมวลกฎหมายแพ่งและพาณิชย์',
-      shortName: 'ป.พ.พ.',
-      category: 'code',
-      categoryLabel: 'ประมวลกฎหมาย',
-      iconName: 'BookOpen',
-      color: '#3B82F6',
-      description: 'ประมวลกฎหมายแพ่งและพาณิชย์ ฉบับมาตรฐานทางการ พร้อมโครงสร้างบรรพและหมวดครบถ้วน',
-      isPublished: true,
-      version: '1.0',
-      totalSections: report.sections.length,
-      author: 'สำนักงานคณะกรรมการกฤษฎีกา (คลังมาตรฐาน)',
-      updatedAt: Date.now(),
-      isDefault: true,
-      rawText: SAMPLE_CIVIL_CODE_TEXT,
-    };
-
-    const cards: LawCard[] = report.sections.map((sec, idx) => ({
-      id: `${deck.id}_sec_${sec.sectionRawNum || idx + 1}`,
-      deckId: deck.id,
-      deckName: deck.name,
-      deckShortName: deck.shortName,
-      book: sec.book,
-      titleStructure: sec.titleStructure,
-      chapter: sec.chapter,
-      part: sec.part,
-      sectionNumber: sec.sectionNumber,
-      sectionRawNum: sec.sectionRawNum,
-      title: sec.title,
-      fullText: sec.fullText,
-      paragraphs: sec.paragraphs,
-      isVerified: true,
-      createdAt: Date.now(),
-    }));
-
-    await saveOfficialDeckToLocalDB(deck, cards);
-    return { deck, cards };
-  } catch (err) {
-    console.warn('Could not seed default official civil code:', err);
-    return null;
-  }
+  await deleteOfficialDeckFromLocalDB('official_civil_code_standard');
+  return null;
 }
 
 // Download single deck with its cards as JSON file

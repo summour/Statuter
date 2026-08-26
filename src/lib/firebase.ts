@@ -463,18 +463,20 @@ import { parseThaiLawText } from '../utils/thaiLawParser';
 // 1. Fetch Official Decks (List of all published official decks in the system)
 export async function fetchOfficialDecks(includeUnpublished: boolean = false): Promise<OfficialLawDeck[]> {
   const localDecks = await loadOfficialDecksFromLocalDB();
-  const deckMap = new Map<string, OfficialLawDeck>();
-  
-  // Seed with local IndexedDB records
-  localDecks.forEach(d => deckMap.set(d.id, d));
 
   const fetchCloud = async () => {
     const colRef = collection(db, 'official_decks');
     const snapshot = await getDocs(colRef);
 
+    const cloudMap = new Map<string, OfficialLawDeck>();
+    const deletedDeckIds = new Set<string>();
+
     snapshot.forEach(docSnap => {
       const data = docSnap.data();
-      if (data && data.id && !data.isDeleted) {
+      if (!data || !data.id) return;
+      if (data.id === 'official_civil_code_standard' || data.isDeleted) {
+        deletedDeckIds.add(data.id);
+      } else {
         const deck: OfficialLawDeck = {
           id: data.id,
           name: data.name || '',
@@ -494,12 +496,19 @@ export async function fetchOfficialDecks(includeUnpublished: boolean = false): P
           rawText: data.rawText || undefined,
         };
 
-        deckMap.set(deck.id, deck);
+        cloudMap.set(deck.id, deck);
         saveOfficialDeckToLocalDB(deck, undefined, deck.rawText).catch(() => {});
       }
     });
 
-    const allMerged = Array.from(deckMap.values());
+    // Purge any local official decks on this client that were deleted or are no longer on Cloud
+    for (const localDeck of localDecks) {
+      if (deletedDeckIds.has(localDeck.id) || !cloudMap.has(localDeck.id)) {
+        deleteOfficialDeckFromLocalDB(localDeck.id).catch(() => {});
+      }
+    }
+
+    const allMerged = Array.from(cloudMap.values());
     const result = allMerged.filter(deck => includeUnpublished || deck.isPublished);
     return result.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   };
@@ -509,7 +518,7 @@ export async function fetchOfficialDecks(includeUnpublished: boolean = false): P
     return await withTimeout(fetchCloud(), 3500, 'Cloud fetch timeout');
   } catch (error) {
     console.warn('Official decks using local DB instant cache:', error);
-    const result = Array.from(deckMap.values()).filter(deck => includeUnpublished || deck.isPublished);
+    const result = localDecks.filter(deck => includeUnpublished || deck.isPublished);
     return result.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }
 }
